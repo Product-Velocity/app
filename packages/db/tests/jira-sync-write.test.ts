@@ -100,6 +100,20 @@ describe("jira_record_sync", () => {
     expect(l.sent_hash).toBe(S("9"));
     expect(l.sync_checked_at).not.toBeNull();
   });
+  it("stamps sent_at when something was sent, and leaves it alone when a sync found nothing to send (issue #714)", async () => {
+    const { item: id } = await setup();
+    expect((await link(id)).sent_at).toBeNull();
+    await call("select public.jira_record_sync($1, $2, $3::jsonb, null)", [creator, id, JSON.stringify({ title: H("1") })]);
+    expect((await link(id)).sent_at).toBeNull(); // read and compared, nothing written to Jira
+    await call("select public.jira_record_sync($1, $2, $3::jsonb, $4)", [creator, id, JSON.stringify({ title: H("1") }), S("9")]);
+    const first = (await link(id)).sent_at;
+    expect(first).not.toBeNull();
+    await call("select public.jira_record_sync($1, $2, $3::jsonb, $4)", [creator, id, JSON.stringify({ title: H("1") }), S("9")]);
+    expect((await link(id)).sent_at).toEqual(first); // the same hash again: nothing new was sent
+    await call("select public.jira_record_sync($1, $2, $3::jsonb, $4)", [creator, id, JSON.stringify({ title: H("1") }), S("8")]);
+    expect(new Date((await link(id)).sent_at).getTime()).toBeGreaterThanOrEqual(new Date(first).getTime());
+    expect((await link(id)).sent_hash).toBe(S("8"));
+  });
   it("refuses a viewer, a service account, another workspace and a read-only link; stores no text", async () => {
     const { item: id } = await setup();
     const { item: ro } = await setup(f.tenantA, connA, "follow");

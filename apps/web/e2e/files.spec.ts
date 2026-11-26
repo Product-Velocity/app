@@ -48,7 +48,7 @@ test.describe("Files on an initiative", () => {
     await field.locator('input[type="file"]').setInputFiles({ name: "mockup.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]) });
     const row = field.locator('[data-file="mockup.png"]');
     await expect(row.getByRole("link", { name: "mockup.png" })).toHaveAttribute("target", "_blank");
-    await expect(row.getByRole("button", { name: /Shared with GitHub/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(row.getByRole("button", { name: /Goes in with the issue/ })).toHaveAttribute("aria-pressed", "true");
     await row.getByRole("button", { name: "Actions for mockup.png" }).click();
     await expect(row.getByRole("menuitem", { name: "Copy link" })).toBeVisible();
     await page.screenshot({ path: "../../docs/screenshots/files-share-link.png" });
@@ -64,13 +64,13 @@ test.describe("Files on an initiative", () => {
     const renamed = field.locator('[data-file="Checkout mockup.png"]');
     await expect(renamed.getByRole("link", { name: "Checkout mockup.png" })).toBeVisible();
     // do not share, then share again
-    await renamed.getByRole("button", { name: /Shared with GitHub/ }).click();
-    await expect(renamed.getByRole("button", { name: /Only in Product Velocity/ })).toHaveAttribute("aria-pressed", "false");
+    await renamed.getByRole("button", { name: /Goes in with the issue/ }).click();
+    await expect(renamed.getByRole("button", { name: /Not in the GitHub issue/ })).toHaveAttribute("aria-pressed", "false");
     await renamed.getByRole("button", { name: "Actions for Checkout mockup.png" }).click();
     await expect(renamed.getByRole("menuitem", { name: "Copy link" })).toHaveCount(0);
     await page.keyboard.press("Escape");
-    await renamed.getByRole("button", { name: /Only in Product Velocity/ }).click();
-    await expect(renamed.getByRole("button", { name: /Shared with GitHub/ })).toBeVisible();
+    await renamed.getByRole("button", { name: /Not in the GitHub issue/ }).click();
+    await expect(renamed.getByRole("button", { name: /Goes in with the issue/ })).toBeVisible();
     // remove (asks first)
     page.once("dialog", (d) => void d.accept());
     await renamed.getByRole("button", { name: "Actions for Checkout mockup.png" }).click();
@@ -89,8 +89,8 @@ test.describe("Files on an initiative", () => {
     await fakeFiles(page, [{ id: "f1", name: "spec.pdf", mime: "application/pdf", size: 5000, shareUrl: null }]);
     const field = await openPanel(page, "viewer");
     await expect(field.getByRole("link", { name: "spec.pdf" })).toBeVisible();
-    await expect(field.getByText("Only in Product Velocity")).toBeVisible(); // shown as text, not a switch
-    await expect(field.getByRole("button", { name: /Only in Product Velocity/ })).toHaveCount(0);
+    await expect(field.getByText("Not in the GitHub issue")).toBeVisible(); // shown as text, not a switch
+    await expect(field.getByRole("button", { name: /Not in the GitHub issue/ })).toHaveCount(0);
     await expect(field.locator('input[type="file"]')).toHaveCount(0);
     await field.getByRole("button", { name: "Actions for spec.pdf" }).click();
     await expect(field.getByRole("menuitem")).toHaveText(["Open", "Download"]);

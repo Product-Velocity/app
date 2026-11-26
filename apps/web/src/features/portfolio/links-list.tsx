@@ -3,6 +3,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { DOC_KINDS, DOC_KIND_LABEL, pageIdFromUrl, type DocKind, type Link } from "@pv/domain";
 import { host, NameEdit, RowIcon, RowMenu, ShareChip } from "./attachment-ui";
+import { shareLine, type TrackerShare } from "./share-state";
 import type { FieldCtx } from "./item-fields";
 
 /** What the Spec tab's "Add" menu calls on the links list. */
@@ -21,7 +22,7 @@ const typingIn = (t: EventTarget | null) => t instanceof HTMLElement && (t.isCon
  * The links of one initiative (Artifacts), as the same rows as documents and files. A pasted web address (not into a box) is added and named after its
  * page; a link without a name shows its domain. Links go into the tracker issue unless the chip says "Only in Product Velocity".
  */
-export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string; disabled: boolean; onError: (e: string | null) => void; query?: string; tracker?: string; /** Present when Confluence is connected: reads the page of a Confluence link into a document. */ onImportPage?: (pageUrl: string, kind: DocKind | undefined) => void }>(function LinksList({ ctx, itemId, disabled, onError, query = "", tracker = "the issue", onImportPage }, ref) {
+export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string; disabled: boolean; onError: (e: string | null) => void; query?: string; tracker?: string; /** Present when Confluence is connected: reads the page of a Confluence link into a document. */ onImportPage?: (pageUrl: string, kind: DocKind | undefined) => void; /** The tracker side of the chip: is there an issue, may we write, when did we last write (issue #714). */ trackerShare?: TrackerShare }>(function LinksList({ ctx, itemId, disabled, onError, query = "", tracker = "GitHub", onImportPage, trackerShare }, ref) {
   const related = ctx.controller.relatedOf(itemId);
   const list = (related?.artifacts ?? []) as Link[];
   const [adding, setAdding] = useState(false);
@@ -75,6 +76,7 @@ export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string
                 ? <NameEdit value={l.label} label={`Name of the link ${display(l)}`} onSave={(v) => { setRenaming(null); if (v !== l.label) set(list.map((x) => (x === l ? { ...x, label: v.trim() } : x))); }} onCancel={() => setRenaming(null)} />
                 : <a className="entry-name" href={l.url} target="_blank" rel="noopener noreferrer">{display(l)}</a>}
               <span className="entry-meta">{l.kind ? `${kindLabel(l.kind)} · ` : ""}{l.label ? host(l.url) : l.url}</span>
+              <span className="entry-meta">{shareLine(trackerShare ?? { tracker, linked: true, writes: true, sentAt: null }, { shared: l.shared !== false, kind: "link" }).detail}</span>
             </span>
             <span className="entry-actions">
             {!disabled && (
@@ -83,7 +85,7 @@ export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string
                 {DOC_KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}
               </select>
             )}
-            <ShareChip shared={l.shared !== false} tracker={tracker} name={display(l)} disabled={disabled} onToggle={(on) => set(list.map((x) => (x !== l ? x : { label: x.label, url: x.url, ...(x.kind ? { kind: x.kind } : {}), ...(on ? {} : { shared: false as const }) })))} />
+            <ShareChip line={shareLine(trackerShare ?? { tracker, linked: true, writes: true, sentAt: null }, { shared: l.shared !== false, kind: "link" })} tracker={tracker} name={display(l)} disabled={disabled} onToggle={(on) => set(list.map((x) => (x !== l ? x : { label: x.label, url: x.url, ...(x.kind ? { kind: x.kind } : {}), ...(on ? {} : { shared: false as const }) })))} />
             <RowMenu label={`Actions for ${display(l)}`} items={[
               { label: "Open", href: l.url },
               { label: "Copy address", onSelect: () => void navigator.clipboard?.writeText(l.url).catch(() => onError("Your browser did not allow copying.")) },

@@ -11,12 +11,12 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
     supabase.rpc("tenant_directory", { p_tenant: tenantId }),
     supabase.rpc("people_directory", { p_tenant: tenantId }),
     supabase.from("github_connections").select("id").eq("tenant_id", tenantId).eq("state", "connected").maybeSingle(),
-    supabase.from("item_github_links").select("item_id, mode, issue_number, html_url, sync_state, last_error, gh_state, gh_last_activity, frozen_at").eq("tenant_id", tenantId),
+    supabase.from("item_github_links").select("item_id, mode, issue_number, html_url, sync_state, last_error, gh_state, gh_last_activity, last_pushed_at, frozen_at").eq("tenant_id", tenantId),
     supabase.rpc("item_build_cycle", { p_tenant: tenantId }),
     supabase.from("tenant_members").select("user_id, github_username").eq("tenant_id", tenantId),
     supabase.from("tenants").select("currency").eq("id", tenantId).maybeSingle(),
     supabase.from("jira_connections").select("id").eq("tenant_id", tenantId).eq("state", "connected").limit(1),
-    supabase.from("item_jira_links").select("item_id, mode, issue_key, html_url, jira_status, jira_status_category, sync_checked_at, jira_updated_at, frozen_at").eq("tenant_id", tenantId),
+    supabase.from("item_jira_links").select("item_id, mode, issue_key, html_url, jira_status, jira_status_category, sync_checked_at, sent_at, jira_updated_at, frozen_at").eq("tenant_id", tenantId),
     // projects set read only for Jira (issue #656); a database without the column simply has none
     supabase.from("jira_project_links").select("project_id").eq("tenant_id", tenantId).eq("read_only", true),
   ]);
@@ -32,8 +32,8 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
     projects: ((projects.data ?? []) as { id: string; name: string }[]).map(({ id, name }) => ({ id, name })),
     jira: {
       links: Object.fromEntries(
-        ((jiraLinks.data ?? []) as { item_id: string; mode: "push" | "follow"; issue_key: string; html_url: string | null; jira_status: string | null; jira_status_category: "new" | "indeterminate" | "done" | null; sync_checked_at: string | null }[])
-          .map((l) => [l.item_id, { mode: l.mode, issueKey: l.issue_key, url: l.html_url, status: l.jira_status, category: l.jira_status_category, lastSynced: l.sync_checked_at, buildStartedAt: build.get(l.item_id)?.build_started_at ?? null, buildCompletedAt: build.get(l.item_id)?.build_completed_at ?? null, buildDays: build.get(l.item_id)?.build_days == null ? null : Number(build.get(l.item_id)!.build_days) }]),
+        ((jiraLinks.data ?? []) as { item_id: string; mode: "push" | "follow"; issue_key: string; html_url: string | null; jira_status: string | null; jira_status_category: "new" | "indeterminate" | "done" | null; sync_checked_at: string | null; sent_at?: string | null }[])
+          .map((l) => [l.item_id, { mode: l.mode, issueKey: l.issue_key, url: l.html_url, status: l.jira_status, category: l.jira_status_category, lastSynced: l.sync_checked_at, sentAt: l.sent_at ?? null, buildStartedAt: build.get(l.item_id)?.build_started_at ?? null, buildCompletedAt: build.get(l.item_id)?.build_completed_at ?? null, buildDays: build.get(l.item_id)?.build_days == null ? null : Number(build.get(l.item_id)!.build_days) }]),
       ),
     },
     trackers: { jira: ((jira.data ?? []) as unknown[]).length > 0, projectTracker: Object.fromEntries(((projects.data ?? []) as { id: string; tracker?: "github" | "jira" | null }[]).map((p) => [p.id, p.tracker ?? null])), jiraReadOnly: readOnlyLinks.error ? [] : ((readOnlyLinks.data ?? []) as { project_id: string }[]).map((r) => r.project_id) },
@@ -48,7 +48,7 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
     github: {
       connected: Boolean(connection.data),
       links: Object.fromEntries(
-        ((links.data ?? []) as { item_id: string; mode: "push" | "follow"; issue_number: number | null; html_url: string | null; sync_state: "pending" | "synced" | "error"; last_error: string | null; gh_state: "open" | "closed_completed" | "closed_not_planned" | null; gh_last_activity: string | null }[]).map((l) => [l.item_id, { mode: l.mode, number: l.issue_number, url: l.html_url, state: l.sync_state, error: l.last_error, ghState: l.gh_state, lastActivity: l.gh_last_activity, buildStartedAt: build.get(l.item_id)?.build_started_at ?? null, buildCompletedAt: build.get(l.item_id)?.build_completed_at ?? null, buildDays: build.get(l.item_id)?.build_days == null ? null : Number(build.get(l.item_id)!.build_days) }]),
+        ((links.data ?? []) as { item_id: string; mode: "push" | "follow"; issue_number: number | null; html_url: string | null; sync_state: "pending" | "synced" | "error"; last_error: string | null; gh_state: "open" | "closed_completed" | "closed_not_planned" | null; gh_last_activity: string | null; last_pushed_at?: string | null }[]).map((l) => [l.item_id, { mode: l.mode, number: l.issue_number, url: l.html_url, state: l.sync_state, error: l.last_error, ghState: l.gh_state, lastActivity: l.gh_last_activity, lastPushedAt: l.last_pushed_at ?? null, buildStartedAt: build.get(l.item_id)?.build_started_at ?? null, buildCompletedAt: build.get(l.item_id)?.build_completed_at ?? null, buildDays: build.get(l.item_id)?.build_days == null ? null : Number(build.get(l.item_id)!.build_days) }]),
       ),
     },
   };
