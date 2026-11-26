@@ -22,6 +22,7 @@ import AiUseCasesHelp from "./ai-use-cases/page";
 import GetStartedHelp from "./get-started/page";
 import PeopleAndAccessHelp from "./people-and-access/page";
 import SkillsHelp from "./skills/page";
+import JiraSetupsHelp from "./jira-setups/page";
 import { GUIDED_ONLY, MEMBER_STATUSES, MEMBER_STATUS_LABEL, SKILLS } from "@pv/domain";
 import { ROLES, ROLE_LABEL } from "@/lib/roles";
 import { HELP_SKILL_COMMANDS } from "@/components/help/skill-figures";
@@ -29,7 +30,7 @@ import { SkillHelpPage } from "@/components/help/skill-page";
 
 const PAGES: Record<string, () => React.JSX.Element> = {
   "": HelpHome, okrs: OkrsPage, lifecycle: LifecyclePage, alignment: AlignmentPage, reports: ReportsHelp, delivery: DeliveryHelp, ai: AiHelp,
-  "ai-setup": AiSetupHelp, columns: ColumnsHelp, shortcuts: ShortcutsHelp, "goal-fields": GoalFieldsHelp, phases: PhasesHelp, statuses: StatusesHelp, "sync-rules": SyncRulesHelp, attention: AttentionHelp,
+  "ai-setup": AiSetupHelp, columns: ColumnsHelp, shortcuts: ShortcutsHelp, "goal-fields": GoalFieldsHelp, phases: PhasesHelp, statuses: StatusesHelp, "sync-rules": SyncRulesHelp, "jira-setups": JiraSetupsHelp, attention: AttentionHelp,
   "report-definitions": ReportDefinitionsHelp, "ai-use-cases": AiUseCasesHelp, skills: SkillsHelp, "get-started": GetStartedHelp, "people-and-access": PeopleAndAccessHelp,
 };
 const html: Record<string, string> = Object.fromEntries(Object.entries(PAGES).map(([k, P]) => [k, renderToStaticMarkup(createElement(P))]));
@@ -149,6 +150,16 @@ describe("Help pages", () => {
     expect(html.ai!).toContain('href="/help/skills"');
     expect(html["ai-use-cases"]!).toContain('href="/help/skills"');
     expect(html["ai-use-cases"]!).not.toContain("Every skill, what it works on and what you get");
+  });
+
+  it("explains each Jira setup, what is written to Jira, and links to it from the delivery topic", () => {
+    const t = text(html["jira-setups"]!);
+    for (const h of ["A. Epics are the initiatives", "B. Initiatives in Product Velocity, track epics", "C. Epics from many Jira projects, track only", "D. Many Jira projects, send and sync", "E. Jira Initiatives, pulled in", "F. Teams on different settings"]) expect(t, h).toContain(h);
+    expect(t).toContain("Read only: listen to Jira");
+    expect(t).toContain("One Jira project per Product Velocity project");
+    expect(t).toContain("Nothing is written to Jira until you see a preview and confirm");
+    expect(t).toMatch(/Never sent to Jira: value, confidence/);
+    expect(html.delivery!).toContain('href="/help/jira-setups"');
   });
 
   it("explains people, roles and access: the three kinds, every role and status the app has, and the use-cases (issue #696)", () => {

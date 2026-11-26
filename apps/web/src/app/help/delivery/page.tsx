@@ -30,6 +30,7 @@ export default function DeliveryHelp() {
             { title: "The same for both", text: "GitHub and Jira have the same connection screens, the same steps, the same sync actions and the same rules. GitLab is planned." },
           ]}
         />
+        <HelpReference slug="jira-setups">Jira setups: epics as initiatives, initiatives with tracked epics, many Jira projects, read only or send and sync</HelpReference>
         <HelpWhere>Account menu, Workspace admin, Integrations. Connect an AI assistant is a separate page in the same menu.</HelpWhere>
       </HelpSection>
 
