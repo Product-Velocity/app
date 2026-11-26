@@ -142,3 +142,44 @@ export async function updatePage(call: ConfluenceRequest, p: PageUpdate, siteUrl
   const page = toPage(x.r.json, siteUrl);
   return page ? { ok: true, page } : BAD_ANSWER("the updated page");
 }
+
+export type PageSummary = { id: string; title: string };
+const toSummaries = (json: unknown): PageSummary[] | null => {
+  const results = obj(json).results;
+  if (!Array.isArray(results)) return null;
+  return results
+    .map((r) => ({ id: str(obj(r).id), title: str(obj(r).title) }))
+    .filter((p) => /^\d{1,20}$/.test(p.id))
+    .sort((a, b) => a.title.localeCompare(b.title));
+};
+
+/** The top-level pages of a space (those with no parent page; the space's home page is one of them), by title. One page of up to 250. */
+export async function listRootPages(call: ConfluenceRequest, spaceId: string, sleep?: Sleep): Promise<{ ok: true; pages: PageSummary[] } | ConfluenceFail> {
+  if (!/^\d{1,20}$/.test(spaceId)) return { ok: false, kind: "rejected", message: "That is not a Confluence space id." };
+  const x = await run(() => call("GET", `/api/v2/spaces/${spaceId}/pages?depth=root&limit=250&status=current&sort=title`), sleep);
+  if ("fail" in x) return x.fail;
+  if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
+  const pages = toSummaries(x.r.json);
+  return pages ? { ok: true, pages } : BAD_ANSWER("the pages of a space");
+}
+
+/** The sub pages directly under a page, by title. One page of up to 250. */
+export async function listChildPages(call: ConfluenceRequest, pageId: string, sleep?: Sleep): Promise<{ ok: true; pages: PageSummary[] } | ConfluenceFail> {
+  if (!/^\d{1,20}$/.test(pageId)) return { ok: false, kind: "rejected", message: "That is not a Confluence page id." };
+  const x = await run(() => call("GET", `/api/v2/pages/${pageId}/children?limit=250`), sleep);
+  if ("fail" in x) return x.fail;
+  if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
+  const pages = toSummaries(x.r.json);
+  return pages ? { ok: true, pages } : BAD_ANSWER("the sub pages of a page");
+}
+
+/** One space by its id (a page answers with the space id; the person and the stored link use the key). */
+export async function getSpaceById(call: ConfluenceRequest, id: string, sleep?: Sleep): Promise<{ ok: true; space: Space } | ConfluenceFail> {
+  if (!/^\d{1,20}$/.test(id)) return { ok: false, kind: "rejected", message: "That is not a Confluence space id." };
+  const x = await run(() => call("GET", `/api/v2/spaces/${id}`), sleep);
+  if ("fail" in x) return x.fail;
+  if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
+  const space = toSpace(x.r.json);
+  return space ? { ok: true, space } : BAD_ANSWER("a space");
+}
+

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
-import { createPage, failure, getPage, getSpaceByKey, listSpaces, updatePage, whyConfluence, type ConfluenceRequest } from "./client";
+import { createPage, failure, getPage, getSpaceById, listChildPages, listRootPages, getSpaceByKey, listSpaces, updatePage, whyConfluence, type ConfluenceRequest } from "./client";
 
 type Answer = { status: number; json?: unknown; retryAfterSec?: number };
 const fake = (answers: Answer[]) => {
@@ -144,3 +144,36 @@ describe("refusals, retries and the sign-in", () => {
     expect(whyConfluence({ data: { errors: [{ message: { translation: "Old shape" } }] } })).toBe("Old shape");
   });
 });
+
+describe("browse the pages of a space (the page tree)", () => {
+  it("lists the top-level pages of a space by title, with ids a person never has to type", async () => {
+    const { call, calls } = fake([{ status: 200, json: { results: [{ id: "30", title: "Roadmap" }, { id: "10", title: "Archive" }, { id: "x", title: "no numeric id" }, { id: "20", title: "Home" }] } }]);
+    expect(await listRootPages(call, "777", nosleep)).toEqual({ ok: true, pages: [{ id: "10", title: "Archive" }, { id: "20", title: "Home" }, { id: "30", title: "Roadmap" }] });
+    expect(calls[0]).toMatchObject({ method: "GET", path: "/api/v2/spaces/777/pages?depth=root&limit=250&status=current&sort=title" });
+  });
+  it("lists the sub pages directly under a page", async () => {
+    const { call, calls } = fake([{ status: 200, json: { results: [{ id: "2", title: "B" }, { id: "1", title: "A" }] } }]);
+    expect(await listChildPages(call, "20", nosleep)).toEqual({ ok: true, pages: [{ id: "1", title: "A" }, { id: "2", title: "B" }] });
+    expect(calls[0]!.path).toBe("/api/v2/pages/20/children?limit=250");
+  });
+  it("refuses a bad id without asking, says so when the answer is not a list, and shows a refusal in words", async () => {
+    const f = fake([]);
+    expect((await listRootPages(f.call, "../x", nosleep)).ok).toBe(false);
+    expect((await listChildPages(f.call, "abc", nosleep)).ok).toBe(false);
+    expect(f.calls).toHaveLength(0);
+    expect(await listChildPages(fake([{ status: 200, json: { nope: 1 } }]).call, "1", nosleep)).toMatchObject({ ok: false, kind: "rejected" });
+    expect(await listRootPages(fake([{ status: 403 }]).call, "1", nosleep)).toMatchObject({ ok: false, kind: "forbidden" });
+  });
+});
+
+describe("find a space by its id", () => {
+  it("returns the key and name; refuses a bad id without asking", async () => {
+    const { call, calls } = fake([{ status: 200, json: { id: "777", key: "PRD", name: "Product", type: "global" } }]);
+    expect(await getSpaceById(call, "777", nosleep)).toEqual({ ok: true, space: { id: "777", key: "PRD", name: "Product", type: "global" } });
+    expect(calls[0]!.path).toBe("/api/v2/spaces/777");
+    const f = fake([]);
+    expect(await getSpaceById(f.call, "../x", nosleep)).toMatchObject({ ok: false, kind: "rejected" });
+    expect(f.calls).toHaveLength(0);
+  });
+});
+

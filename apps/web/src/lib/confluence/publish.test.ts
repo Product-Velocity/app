@@ -19,6 +19,8 @@ function confluence(seed: FakePage[] = []) {
     const b = (body ?? {}) as { title: string; spaceId: string; version: { number: number }; body: { value: string } };
     const one = /^\/api\/v2\/pages\/(\d+)$/.exec(path);
     const space = /^\/api\/v2\/spaces\?keys=([^&]+)/.exec(path);
+    const spaceId = /^\/api\/v2\/spaces\/(\d+)$/.exec(path);
+    if (method === "GET" && spaceId) { const key = keyOf(spaceId[1]!); return key ? { status: 200, json: { id: spaceId[1], key, name: key, type: "global" } } : { status: 404, json: null }; }
     if (method === "GET" && space) { const key = decodeURIComponent(space[1]!); return { status: 200, json: { results: SPACE_IDS[key] ? [{ id: SPACE_IDS[key], key, name: key, type: "global" }] : [] } }; }
     if (method === "GET" && one) { const p = pages.get(one[1]!); return p ? { status: 200, json: wire(p) } : { status: 404, json: { errors: [{ status: 404, title: "Not Found" }] } }; }
     if (method === "POST" && path === "/api/v2/pages") {
@@ -226,3 +228,73 @@ describe("update", () => {
     expect(await previewPublish(d, IN)).toMatchObject({ ok: false, kind: "forbidden" });
   });
 });
+
+describe("a parent page chosen in the page tree (by id)", () => {
+  const seed: FakePage[] = [{ id: "77", title: "Specs", version: 2, space: "PRD", body: "" }, { id: "88", title: "Other", version: 1, space: "ELSE", body: "" }];
+  it("is looked up, shown by its title and used as the parent of the new page", async () => {
+    const s = setup({ seed });
+    const input: PublishInput = { ...IN, parentPageId: "77" };
+    const p = await previewPublish(s.deps(), input);
+    expect(p).toMatchObject({ ok: true, action: "create", parent: { id: "77", title: "Specs" } });
+    const done = await confirmPublish(s.deps(), { ...input, confirm: p.ok ? p.confirm : "" });
+    expect(done).toMatchObject({ ok: true, action: "create" });
+    expect(s.store.inserted[0]).toMatchObject({ parentPageId: "77", spaceKey: "PRD" });
+  });
+  it("must be in the chosen space, must be a page id, and must exist", async () => {
+    const s = setup({ seed });
+    expect(await previewPublish(s.deps(), { ...IN, parentPageId: "88" })).toMatchObject({ ok: false, kind: "invalid", message: expect.stringContaining("another space than PRD") });
+    expect(await previewPublish(s.deps(), { ...IN, parentPageId: "../x" })).toMatchObject({ ok: false, kind: "invalid" });
+    expect(await previewPublish(s.deps(), { ...IN, parentPageId: "404" })).toMatchObject({ ok: false, kind: "gone" });
+  });
+});
+
+describe("publishing onto a page that already exists", () => {
+  const page: FakePage = { id: "55", title: "Existing GTM page", version: 4, space: "GTM", body: "<p>old content</p>" };
+  it("the preview says the whole page will be replaced and that Product Velocity did not create it; nothing is written", async () => {
+    const s = setup({ seed: [page] });
+    const p = await previewPublish(s.deps(), { mode: "sync", existingPageId: "55" });
+    expect(p).toMatchObject({ ok: true, action: "update", adopt: true, spaceKey: "GTM", title: "Existing GTM page", page: { id: "55", version: 4 }, parent: null });
+    expect(p.ok && p.notes[0]).toMatch(/replaces the whole content.*did not create.*previous version stays in the page history/);
+    expect(s.c.pages.get("55")!.body).toBe("<p>old content</p>");
+    expect(s.store.inserted).toEqual([]);
+  });
+  it("confirm writes the next version of that page, keeps its title unless the person gave one, and records it as the document's page", async () => {
+    const s = setup({ seed: [page] });
+    const input: PublishInput = { mode: "sync", existingPageId: "55" };
+    const p = await previewPublish(s.deps(), input);
+    const done = await confirmPublish(s.deps(), { ...input, confirm: p.ok ? p.confirm : "" });
+    expect(done).toMatchObject({ ok: true, action: "update", page: { id: "55", version: 5 }, message: expect.stringContaining("existing page was replaced") });
+    expect(s.c.pages.get("55")).toMatchObject({ version: 5, title: "Existing GTM page" });
+    expect(s.c.pages.get("55")!.body).toContain("Managed in Product Velocity");
+    expect(s.c.pages.get("55")!.body).toContain("<h1>Tickets</h1>");
+    expect(s.store.inserted).toEqual([expect.objectContaining({ pageId: "55", spaceKey: "GTM", parentPageId: null, syncMode: "sync", publishedVersion: 1, remoteVersion: 5, unlinkedAt: null })]);
+    // a title the person gave replaces the page's title
+    const s2 = setup({ seed: [page] });
+    const in2: PublishInput = { mode: "once", existingPageId: "55", title: "GTM - R-12 - Tickets" };
+    const p2 = await previewPublish(s2.deps(), in2);
+    await confirmPublish(s2.deps(), { ...in2, confirm: p2.ok ? p2.confirm : "" });
+    expect(s2.c.pages.get("55")!.title).toBe("GTM - R-12 - Tickets");
+    expect(s2.store.inserted[0]).toMatchObject({ syncMode: "once", unlinkedAt: "2026-11-26T12:00:00Z" });
+  });
+  it("a page saved in Confluence between the preview and the confirmation is not overwritten", async () => {
+    const s = setup({ seed: [page] });
+    const input: PublishInput = { mode: "sync", existingPageId: "55" };
+    const p = await previewPublish(s.deps(), input);
+    s.c.editInConfluence("55", "<p>somebody edited</p>");
+    expect(await confirmPublish(s.deps(), { ...input, confirm: p.ok ? p.confirm : "" })).toMatchObject({ ok: false, kind: "changed" });
+    expect(s.c.pages.get("55")!.body).toBe("<p>somebody edited</p>");
+    expect(s.store.inserted).toEqual([]);
+  });
+  it("a page that does not exist, or is not a page id, is refused in words", async () => {
+    const s = setup({ seed: [page] });
+    expect(await previewPublish(s.deps(), { mode: "once", existingPageId: "404" })).toMatchObject({ ok: false, kind: "gone" });
+    expect(await previewPublish(s.deps(), { mode: "once", existingPageId: "abc" })).toMatchObject({ ok: false, kind: "invalid" });
+  });
+  it("is not offered when the document already has a page of its own: that page is updated instead", async () => {
+    const live = { id: "pub-1", pageId: "55", pageUrl: "https://acme.atlassian.net/wiki/spaces/GTM/pages/55/x", spaceKey: "GTM", syncMode: "sync" as const, publishedVersion: 1, remoteVersion: 4, contentHash: "old" };
+    const s = setup({ seed: [page], live, doc: { version: 2 } });
+    const p = await previewPublish(s.deps(), { mode: "sync", existingPageId: "999" });
+    expect(p).toMatchObject({ ok: true, action: "update", adopt: false, page: { id: "55" } });
+  });
+});
+
