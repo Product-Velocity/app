@@ -1,3 +1,8 @@
+---
+date: 2026-11-26
+by: Ashu (2026-11-26, chat: forget about the screenshots and update the docs that it is not needed)
+status: built
+---
 # No screenshots in pull requests
 
 Ashu, 2026-11-26: "forget about the screenshots and update the docs that it is not needed."
