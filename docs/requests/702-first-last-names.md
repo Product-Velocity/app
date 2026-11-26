@@ -1,6 +1,8 @@
 ---
 issue: 702
-status: in progress
+status: done
+done: 2026-11-26
+link: PR #704, v1.258.0
 logged: 2026-11-26
 title: First and last name for people not invited yet, and on Members; names instead of emails
 ---
