@@ -115,7 +115,12 @@ const WHY: Record<SyncConflict["kind"], (label: string, where?: "board", tracker
  * Sync with GitHub: checks GitHub first (and applies what GitHub owns), then shows exactly what would be written to GitHub and waits
  * for the person to confirm. Nothing is sent before that. With nothing to send it still shows what the check found, and offers Done.
  */
-export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = syncTrackers, onClose, onDone, onTakenOver }: Props) {
+export function GithubPushDialog({ ids: idsProp, api = REAL_API, newItems, trackersOf = syncTrackers, onClose, onDone, onTakenOver }: Props) {
+  // The caller may build the list again on every render (the side panel passes `[itemId]`). The check must not start over each time that happens: it saves what it
+  // reads, which makes the panel render again, which would start the check again without end ("Checked 0 of 1" for ever). So the list only changes when its contents do.
+  const idsKey = idsProp.join("|");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const ids = useMemo(() => idsProp, [idsKey]);
   const titleId = useId();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });

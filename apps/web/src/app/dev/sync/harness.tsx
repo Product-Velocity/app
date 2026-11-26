@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { GithubPushDialog } from "@/features/portfolio/github-push-dialog";
 import { MemoryIncomingSource } from "@/features/incoming/memory-source";
 import { GITHUB_TERMS, JIRA_TERMS, type IncomingIssue } from "@/features/incoming/types";
@@ -144,6 +144,11 @@ export function SyncHarness({ scenario, newIssues }: { scenario: string; newIssu
   const [closed, setClosed] = useState<string[]>([]);
   const api = useMemo(() => fakeApi(scenario, (c) => setCalls((prev) => [...prev, c]), scenario === "jira" ? { jira: fakeRemoved(scenario, (c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`])) } : scenario === "githubremoved" || scenario === "githubstopped" ? { github: fakeGithubRemoved((c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`]), scenario === "githubstopped" ? GH_STOPPED : GH_REMOVED) } : undefined), [scenario]);
   const [refreshes, setRefreshes] = useState(0);
+  // `rerender`: the page renders again every 100 ms and hands the dialog a NEW list of ids each time (as the side panel did), and counts the checks it starts
+  const [, setTick] = useState(0);
+  const [starts, setStarts] = useState(0);
+  useEffect(() => { if (scenario !== "rerender") return; const t = setInterval(() => setTick((n) => n + 1), 100); return () => clearInterval(t); }, [scenario]);
+  const counted = useMemo(() => ({ ...api, start: (...a: Parameters<typeof api.start>) => { setStarts((n) => n + 1); return api.start(...a); } }), [api]);
   const [reloads, setReloads] = useState(0);
   const newItems = useMemo(() => fakeNewItems(newIssues, () => setRefreshes((n) => n + 1)), [newIssues]);
   // stable between renders: a new function each time would restart the dialog's first step whenever a counter below changes
@@ -153,9 +158,10 @@ export function SyncHarness({ scenario, newIssues }: { scenario: string; newIssu
       <button type="button" className="btn" onClick={() => setOpen(true)}>Open sync</button>
       <output data-testid="calls">{calls.join(",")}</output>
       <output data-testid="refreshes">{refreshes}</output>
+      <output data-testid="starts">{starts}</output>
       <output data-testid="reloads">{reloads}</output>
       <output data-testid="closed">{closed.join(",")}</output>
-      {open && <GithubPushDialog ids={IDS} api={api} newItems={newItems} trackersOf={trackersOf} onClose={() => setOpen(false)} onDone={() => setReloads((n) => n + 1)} />}
+      {open && <GithubPushDialog ids={scenario === "rerender" ? [...IDS] : IDS} api={counted} newItems={newItems} trackersOf={trackersOf} onClose={() => setOpen(false)} onDone={() => setReloads((n) => n + 1)} />}
     </main></div>
   );
 }
