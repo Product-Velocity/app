@@ -102,3 +102,24 @@ describe("Build Completed from the epics", () => {
     expect(seen).toBeNull();
   });
 });
+
+describe("item_build_cycle: the tracker's start wins, Product Velocity's move to Build is the fallback (issue 735)", () => {
+  const startedDay = async (item: string) => (await cycle(f.alice, f.tenantA, item))?.build_started_at?.toISOString().slice(0, 10) ?? null;
+  it("uses Start Building (the Jira-derived date) even when the initiative moved to Build later in Product Velocity", async () => {
+    const { item } = await setup([{ done: true }]);
+    await db.admin.query("update public.items set initiative_phase = 'Build' where id = $1", [item]); // the move to Build is audited now and fills Start Building with today
+    await db.admin.query("update public.items set start_building = '2026-11-10' where id = $1", [item]); // what the Jira sync then writes
+    expect(await startedDay(item)).toBe("2026-11-10");
+  });
+  it("falls back to the first move to Build when Start Building is empty", async () => {
+    const { item } = await setup([{ done: true }]);
+    await db.admin.query("update public.items set initiative_phase = 'Build' where id = $1", [item]);
+    await db.admin.query("update public.items set start_building = null where id = $1", [item]);
+    const moved = (await db.admin.query("select min(at)::date::text as d from public.audit_log where entity = 'items' and entity_id = $1 and field = 'initiative_phase' and new = to_jsonb('Build'::text)", [item])).rows[0].d as string | null;
+    expect(moved).not.toBeNull();
+    expect(await startedDay(item)).toBe(moved);
+  });
+  it("a tenant cannot read another tenant's cycle (rule 1)", async () => {
+    expect(await errorCode(db.asUser(f.bob, (q) => q("select * from public.item_build_cycle($1)", [f.tenantA])))).toBe(DENIED);
+  });
+});
