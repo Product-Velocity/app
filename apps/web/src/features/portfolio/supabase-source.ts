@@ -109,6 +109,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
 
     // Last Synced and Synced With: derived from the GitHub link of each initiative
     const syncLinks = new Map<string, SyncLink>();
+    const aboveEpic = new Set<string>();
     const ghState = new Map<string, string | null>(), jiraStatus = new Map<string, string | null>(); // Tracker Status: the tracker's own words
     for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; sync_state: "pending" | "synced" | "error"; last_pushed_at: string | null; gh_synced_at: string | null; project_item_id: string | null; gh_assignees: string[] | null; gh_state: string | null }>("item_github_links", "item_id,mode,repo_full_name,issue_number,sync_state,last_pushed_at,gh_synced_at,project_item_id,gh_assignees,gh_state", ["item_id"])) {
       if (l.gh_assignees?.length) ghLogins.set(l.item_id, l.gh_assignees);
@@ -116,8 +117,9 @@ export class SupabaseDataSource implements PortfolioDataSource {
       syncLinks.set(l.item_id, { mode: l.mode, repo: l.repo_full_name, issueNumber: l.issue_number, syncState: l.sync_state, lastPushedAt: l.last_pushed_at, ghSyncedAt: l.gh_synced_at, hasBoardItem: Boolean(l.project_item_id) });
     }
     // An initiative linked to a Jira issue (and not to GitHub: an initiative has one tracker) shows the Jira key, who owns it and when it was last synced
-    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; issue_key: string; sync_checked_at: string | null; jira_updated_at: string | null; jira_status: string | null }>("item_jira_links", "item_id,mode,issue_key,sync_checked_at,jira_updated_at,jira_status")) {
+    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; issue_key: string; sync_checked_at: string | null; jira_updated_at: string | null; jira_status: string | null; issue_level: number | null }>("item_jira_links", "item_id,mode,issue_key,sync_checked_at,jira_updated_at,jira_status,issue_level")) {
       jiraStatus.set(l.item_id, l.jira_status);
+      if ((l.issue_level ?? 0) >= 2) aboveEpic.add(l.item_id); // a Jira Initiative: its epics drive the build, so they also drive Tracker Status
       if (!syncLinks.has(l.item_id)) syncLinks.set(l.item_id, { tracker: "jira", issueKey: l.issue_key, mode: l.mode, repo: "", issueNumber: null, syncState: "synced", lastPushedAt: l.sync_checked_at, ghSyncedAt: null, hasBoardItem: false });
     }
     // an initiative of a read-only Jira project has no Jira issue, only the epics read from the ones listed on it (item_jira_tree, level 1): its Tracker Status says how many are done
@@ -126,7 +128,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
       for (let from = 0; ; from += PAGE_SIZE) {
         const { data, error } = await this.client.from("item_jira_tree").select("item_id, status_category").eq("tenant_id", this.tenantId).eq("level", 1).order("item_id").order("issue_key").range(from, from + PAGE_SIZE - 1);
         if (error) break; // no table yet, or a failed read: Tracker Status stays as it was
-        for (const r of (data ?? []) as { item_id: string; status_category: string | null }[]) if (!jiraStatus.has(r.item_id)) epicCats.set(r.item_id, [...(epicCats.get(r.item_id) ?? []), r.status_category === "new" || r.status_category === "indeterminate" || r.status_category === "done" ? r.status_category : null]);
+        for (const r of (data ?? []) as { item_id: string; status_category: string | null }[]) if (!jiraStatus.has(r.item_id) || aboveEpic.has(r.item_id)) epicCats.set(r.item_id, [...(epicCats.get(r.item_id) ?? []), r.status_category === "new" || r.status_category === "indeterminate" || r.status_category === "done" ? r.status_category : null]);
         if (!data || data.length < PAGE_SIZE) break;
       }
     } catch { /* leave Tracker Status as it was */ }
@@ -144,8 +146,11 @@ export class SupabaseDataSource implements PortfolioDataSource {
       item.synced_with = syncedWith(sl, boardTitle.get(String(item.home_project)) ?? null) || null;
       item.tracker_ownership = trackerOwnership(sl) || null;
       const epicsStatus = epicsStatusOf(epicCats.get(id) ?? []);
-      item.tracker_status = trackerStatusOf({ jiraStatus: jiraStatus.get(id), boardStatus: item.gh_project_status as string | null, ghState: ghState.get(id) }) ?? epicsStatus?.text ?? null;
-      item.tracker_status_category = epicsStatus && !jiraStatus.has(id) ? epicsStatus.category : null; // colours the pill of an initiative that only has epics
+      // an initiative linked ABOVE Epic (a Jira Initiative) says what its epics add up to, like one that only lists epics, never the Initiative's own Jira status (issue 735)
+      const ownStatus = trackerStatusOf({ jiraStatus: jiraStatus.get(id), boardStatus: item.gh_project_status as string | null, ghState: ghState.get(id) });
+      const byEpics = Boolean(epicsStatus) && (!jiraStatus.has(id) || aboveEpic.has(id));
+      item.tracker_status = (aboveEpic.has(id) ? epicsStatus?.text ?? ownStatus : ownStatus ?? epicsStatus?.text) ?? null;
+      item.tracker_status_category = byEpics ? epicsStatus!.category : null; // colours the pill of an initiative that only has epics
       item.tags = (tags.get("tag")?.get(id) ?? []).join(", ") || null;
       item.target_scope = (tags.get("target_scope")?.get(id) ?? []).join(", ") || null;
       item.live_scope = (tags.get("live_scope")?.get(id) ?? []).join(", ") || null;

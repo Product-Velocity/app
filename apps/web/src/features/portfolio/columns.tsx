@@ -206,8 +206,8 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         const jira = p.data ? lookups.jira?.links[p.data.id] : undefined;
         // an initiative with only epics read from Jira (read-only project) has no issue status: its pill is coloured by what the epics add up to
         const epicCategory = (p.data as unknown as Record<string, unknown> | undefined)?.tracker_status_category;
-        const tone = jira ? jiraCategoryTone(jira.category) : epicCategory === "new" || epicCategory === "indeterminate" || epicCategory === "done" ? jiraCategoryTone(epicCategory) : changeTone("issue-status", v, "GitHub");
-        return <ReadOnlyCell text="" reason={reason} github={false}>{v ? <StatusPill value={v} tone={tone} /> : <span className="muted">Not linked</span>}</ReadOnlyCell>;
+        const tone = epicCategory === "new" || epicCategory === "indeterminate" || epicCategory === "done" ? jiraCategoryTone(epicCategory) : jira?.category ? jiraCategoryTone(jira.category) : changeTone("issue-status", v, "GitHub");
+        return <ReadOnlyCell text="" reason={reason} github={false}>{v ? <StatusPill value={v} tone={tone} /> : <span className="muted">{jira ? "Not read yet" : "Not linked"}</span>}</ReadOnlyCell>;
       } };
     }
     if (f.key === "flags") return { ...base, suppressNavigable: true, width: widths?.flags ?? 360, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <FlagsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
