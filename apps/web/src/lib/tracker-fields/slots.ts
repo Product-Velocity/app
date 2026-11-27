@@ -100,7 +100,7 @@ export const SLOTS: readonly Slot[] = [
   { id: "jira.label.base", tracker: "jira", pvKey: "", kind: "toggle", direction: "to_tracker", defaultTarget: "Base label product-velocity on every issue", store: "config" },
   { id: "jira.name.removed", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pm:removed (after a confirmed close)", store: "config" },
   { id: "jira.name.define", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pm:define (while in Define)", store: "config" },
-  { id: "jira.name.marker", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Hidden label pm:item/<code> on a new issue", store: "config" },
+  { id: "jira.name.marker", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pm:item/<Initiative ID> (R-102) on the issue", store: "config" },
   { id: "jira.priority", tracker: "jira", pvKey: "moscow", kind: "field", direction: "to_tracker", defaultTarget: "Priority (one Jira priority per MoSCoW value; not sent until chosen)", accepts: ["select"], store: "jira_field_map" },
   { id: "jira.startDate", tracker: "jira", pvKey: "planned_start", kind: "field", direction: "to_tracker", defaultTarget: "Start date custom field (not sent until chosen)", accepts: ["date"], idPattern: CUSTOM, store: "jira_field_map" },
   { id: "jira.theme", tracker: "jira", pvKey: "focus_area", kind: "field", direction: "to_tracker", defaultTarget: "Single-line text custom field, e.g. Theme (not sent until chosen)", accepts: ["text"], idPattern: CUSTOM, store: "jira_field_map" },

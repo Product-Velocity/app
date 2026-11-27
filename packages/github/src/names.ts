@@ -110,6 +110,11 @@ export function isOwnedLabel(label: string, n?: Names | null): boolean {
   return LABEL_KINDS.some((k) => label.startsWith(r.prefix[k])) || label.startsWith(r.jiraMarker);
 }
 
+/** The Initiative ID (R-102) as the Jira label `<marker><id>`, or null when the id is not a plain code. Finds an issue again after a create whose answer was lost. */
+export function itemIdLabel(code: unknown, n?: Names | null): string | null {
+  return typeof code === "string" && /^[A-Za-z0-9._-]{1,32}$/.test(code) ? `${resolveNames(n).jiraMarker}${code}` : null;
+}
+
 /** The text that replaces "Managed by Product Velocity" in stealth mode (the footer of a managed block). */
 export const NEUTRAL_FOOTER = "Managed block: edits between the markers are overwritten, text outside them is kept.";
 export const BRANDED_FOOTER_START = "Managed by Product Velocity";

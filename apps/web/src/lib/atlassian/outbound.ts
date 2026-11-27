@@ -38,7 +38,7 @@ export type JiraPayloadInput = {
   parentKey?: string | null;
   /** The name of the Product Velocity project, for its `pv:project/…` label (as on GitHub). */
   projectName?: string;
-  /** An opaque label (a hash of the item id, never the id) put on a CREATED issue, so a create whose answer was lost is found again instead of repeated. */
+  /** The Initiative ID label (`pm:item/R-102`; a hash for an item without a code) put on the issue, so a create whose answer was lost is found again instead of repeated. */
   marker?: string;
   /** Links of the initiative (Artifacts section) and the share links of its files (Files section). Both are sent only; a slot switched off leaves its section out. */
   artifacts?: Link[];
@@ -88,7 +88,7 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
       pv: { summary: typeof read(item, "summary") === "string" ? (read(item, "summary") as string).slice(0, 4000) : "", description, hypothesis: typeof read(item, "hypothesis") === "string" ? (read(item, "hypothesis") as string).slice(0, 4000) : "" },
       ...(map.off?.includes("jira.body.artifacts") ? {} : { artifacts: input.artifacts ?? [] }), ...(map.off?.includes("jira.body.files") ? {} : { files: input.files ?? [] }), ...(input.documents?.length ? { documents: input.documents } : {}),
     }),
-    labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item, input.projectName, map.off, map.on, map.names), ...(input.marker && /^[A-Za-z0-9:_.-]{1,24}\/[0-9a-f]{16}$/.test(input.marker) ? [input.marker] : [])], map.names),
+    labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item, input.projectName, map.off, map.on, map.names), ...(input.marker && /^[A-Za-z0-9:_.-]{1,24}\/[A-Za-z0-9._-]{1,32}$/.test(input.marker) ? [input.marker] : [])], map.names),
   };
   if (input.create) { f.project = { key: input.create.projectKey }; f.issuetype = { id: input.create.issueTypeId }; }
   if (input.parentKey) f.parent = { key: input.parentKey };

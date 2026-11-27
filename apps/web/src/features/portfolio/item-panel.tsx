@@ -361,29 +361,35 @@ function JiraTab({ controller, lookups, itemId }: { controller: PortfolioControl
         )}
         {undoMode && <> <button type="button" className="btn" disabled={busy} onClick={() => void changeOwner(undoMode, true)}>Undo</button></>}
       </p>
-      {mode === "push" && <JiraEpicsGrid controller={controller} itemId={itemId} tree={kids} treeError={null} />}
+      {mode === "push" && <JiraEpicsGrid controller={controller} itemId={itemId} tree={kids} treeError={kidsError} />}
       <p className="muted">Build Status follows the Jira status category and is read only here. For an issue above Epic (a Jira Initiative) it follows its epics instead, and those epics can be in other Jira projects. Initiative Status is never set from Jira. Epics and tasks live in Jira.</p>
-      <h4>Issues under {link.issueKey}</h4>
-      {total != null && <p>{closed} of {total} {total === 1 ? "issue" : "issues"} done (counted at the lowest level; a done issue means the build is progressing, not that the initiative is complete).</p>}
-      {kidsError && <p role="alert" className="pf-error">Could not load the issues: {kidsError}</p>}
-      {!kidsError && !kids && <p role="status" className="muted">Loading the issues…</p>}
-      {kids && kids.some((k) => k.fromList) && <p className="muted">These issues come from the last list read of the Jira project. The full read of the children of this issue did not complete; press Sync with Jira to try again. Assignees are not shown until it does.</p>}
-      {kids && (
-        <table className="table ip-gh" aria-label={`Issues under ${link.issueKey}`}>
-          <thead><tr>{["Issue", "Title", "Type", "Status", "Assignee"].map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
-          <tbody>
-            {kids.length === 0 && <tr><td colSpan={5} className="muted">No child issues read yet. Epics, features and tasks are created in Jira as children of this issue; they appear here after the next Sync with Jira and in the daily check.</td></tr>}
-            {kids.map((k) => (
-              <tr key={k.key} className={k.level === 2 ? "ip-gh-task" : "ip-gh-epic"}>
-                <td className="mono">{k.level === 2 ? "↳ " : ""}{k.url ? <a href={k.url} target="_blank" rel="noreferrer">{k.key}</a> : k.key}</td>
-                <td>{k.title}</td>
-                <td>{k.type ?? <span className="muted">—</span>}</td>
-                <td>{k.status ?? <span className="muted">—</span>}{k.category ? <> <span className="muted">({JIRA_CATEGORY[k.category]})</span></> : null}</td>
-                <td>{k.assignee ?? <span className="muted">Unassigned</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {mode === "push" ? (
+        total != null && <p>{closed} of {total} {total === 1 ? "issue" : "issues"} done (counted at the lowest level; a done issue means the build is progressing, not that the initiative is complete).</p>
+      ) : (
+        <>
+        <h4>Issues under {link.issueKey}</h4>
+        {total != null && <p>{closed} of {total} {total === 1 ? "issue" : "issues"} done (counted at the lowest level; a done issue means the build is progressing, not that the initiative is complete).</p>}
+        {kidsError && <p role="alert" className="pf-error">Could not load the issues: {kidsError}</p>}
+        {!kidsError && !kids && <p role="status" className="muted">Loading the issues…</p>}
+        {kids && kids.some((k) => k.fromList) && <p className="muted">These issues come from the last list read of the Jira project. The full read of the children of this issue did not complete; press Sync with Jira to try again. Assignees are not shown until it does.</p>}
+        {kids && (
+          <table className="table ip-gh" aria-label={`Issues under ${link.issueKey}`}>
+            <thead><tr>{["Issue", "Title", "Type", "Status", "Assignee"].map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
+            <tbody>
+              {kids.length === 0 && <tr><td colSpan={5} className="muted">No child issues read yet. Epics, features and tasks are created in Jira as children of this issue; they appear here after the next Sync with Jira and in the daily check.</td></tr>}
+              {kids.map((k) => (
+                <tr key={k.key} className={k.level === 2 ? "ip-gh-task" : "ip-gh-epic"}>
+                  <td className="mono">{k.level === 2 ? "↳ " : ""}{k.url ? <a href={k.url} target="_blank" rel="noreferrer">{k.key}</a> : k.key}</td>
+                  <td>{k.title}</td>
+                  <td>{k.type ?? <span className="muted">—</span>}</td>
+                  <td>{k.status ?? <span className="muted">—</span>}{k.category ? <> <span className="muted">({JIRA_CATEGORY[k.category]})</span></> : null}</td>
+                  <td>{k.assignee ?? <span className="muted">Unassigned</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        </>
       )}
       <p className="muted">Read only: change issues in Jira. This list is read when you press Sync with Jira, and every day.</p>
     </div>

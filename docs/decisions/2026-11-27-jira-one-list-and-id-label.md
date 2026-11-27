@@ -1,0 +1,12 @@
+---
+date: 2026-11-27
+by: Ashu (chat, after the R89 roadmap Sync), written by Claude
+request: 733
+status: built, to confirm
+---
+**One list on the Jira tab, and the Jira label names the initiative by its Initiative ID.**
+
+- **One list.** When Product Velocity owns the initiative, the Jira tab shows the epics grid only (plus the "n of m issues done" line). The second "Issues under …" table repeated the same rows and is shown only for a read-only (follows) initiative, which has no grid. So that nothing is lost, the grid now also lists epics found under the initiative's issue that nobody listed (made in Jira): they read "In Jira", have no Check or Remove, and their children follow. Status is Jira's and stays read only everywhere (rule 6); nothing here writes to Jira.
+- **The label is the Initiative ID.** `pm:item/<hash>` becomes `pm:item/R-102` (the prefix stays configurable in stealth mode). It was not decoration: it finds an issue again after a create whose answer was lost, so it stays and now also stays on the issue at every Sync (before, the next Sync removed it as one of our labels). An item without a plain code (letters, digits, `.`, `_`, `-`, up to 32) keeps the hash. **Existing issues:** the next confirmed Sync swaps the old hash label for the ID label and keeps people's own labels; that one update shows in the preview.
+- **Why it is safe to use the ID.** The ID is a system code, not a commercial field (field dictionary: "shown in issue body as backlink"). Known limit, not verified against how connections are shared: if two workspaces ever send to the same Jira project, the same ID in both would find the other's issue on a lost-answer recovery.
+- **Not decided here: assignee.** Setting the Product Manager as the Jira assignee needs a match from a person to a Jira account and reverses "Assignee not built" (2026-11-16). Asked in issue 733.

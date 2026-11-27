@@ -77,6 +77,22 @@ describe("create", () => {
     expect(JSON.stringify(p.fields)).not.toContain(pv().id);
     expect(p.newBase).toEqual({ title: h("Checkout"), summary: h(""), description: h(adfToText(markdownToAdf("Pay **fast**"))), hypothesis: h(""), attachments: attachmentsHash([], []) });
   });
+  it("labels the issue with the Initiative ID (pm:item/R-102) instead of a hash, on create and on every update", () => {
+    const create = plan({ pv: pv({ code: "R-102" }), jira: null, create: { projectKey: "PLAT", issueTypeId: "10000" } });
+    expect(create.marker).toBe("pm:item/R-102");
+    expect(create.fields.labels).toContain("pm:item/R-102");
+    expect(JSON.stringify(create.fields)).not.toContain(markerFor(pv().id));
+    // an issue made before this change carries the hash label: the next send swaps it for the ID and keeps people's own labels
+    const old = plan({ pv: pv({ code: "R-102" }), jira: jira({ labels: ["mine", markerFor(pv().id)] }) });
+    expect(old.fields.labels).toEqual(["mine", "pm:moscow/must", "pm:item/R-102"]);
+    // once the ID label is on the issue, nothing is sent again
+    const labelled = jira({ labels: ["pm:moscow/must", "pm:item/R-102"] });
+    const first = plan({ pv: pv({ code: "R-102" }), jira: labelled });
+    expect(plan({ pv: pv({ code: "R-102" }), jira: labelled, sentHash: first.sentHash }).action).toBe("unchanged");
+  });
+  it("an item whose code is not a plain label (or has none) falls back to the hash marker", () => {
+    expect(plan({ pv: pv({ code: "R 102" }), jira: null, create: { projectKey: "PLAT", issueTypeId: "10000" } }).marker).toBe(markerFor(pv().id));
+  });
   it("the marker is stable per item and differs between items", () => {
     expect(markerFor("a")).toBe(markerFor("a"));
     expect(markerFor("a")).not.toBe(markerFor("b"));
