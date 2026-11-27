@@ -15,7 +15,7 @@ import { DocumentsTab } from "./documents-tab";
 import { GithubPushDialog } from "./github-push-dialog";
 import { FieldRow, type FieldCtx } from "./item-fields";
 import { FlaggedFields } from "./flagged-fields";
-import { formatField } from "./format";
+import { formatField, trackerDay } from "./format";
 import { useStatus } from "./status-strip";
 import type { IssueTreeRow, JiraTreeRow, Lookups } from "./types";
 import { JiraEpicsGrid } from "./jira-epics-grid";
@@ -167,8 +167,8 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
           <p className="ip-gh">
             GitHub: {l.url && l.number ? <a href={l.url} target="_blank" rel="noreferrer">issue #{l.number}</a> : "no issue yet"}
             {row.last_synced ? ` · last synced ${new Date(String(row.last_synced)).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : ""}
-            {l.ghState ? ` · ${GH_STATE[l.ghState]}` : ""}{l.lastActivity ? ` · last activity ${new Date(l.lastActivity).toLocaleDateString()}` : ""}
-            {l.buildCompletedAt ? ` · build completed ${new Date(l.buildCompletedAt).toLocaleDateString()}${l.buildStartedAt ? ` (started ${new Date(l.buildStartedAt).toLocaleDateString()}${l.buildDays != null ? `, ${l.buildDays} days` : ""})` : ""}` : l.buildStartedAt ? ` · build started ${new Date(l.buildStartedAt).toLocaleDateString()}` : ""}
+            {l.ghState ? ` · ${GH_STATE[l.ghState]}` : ""}{l.lastActivity ? ` · last activity ${trackerDay(l.lastActivity)}` : ""}
+            {l.buildCompletedAt ? ` · build completed ${trackerDay(l.buildCompletedAt)}${l.buildStartedAt ? ` (started ${trackerDay(l.buildStartedAt)}${l.buildDays != null ? `, ${l.buildDays} days` : ""})` : ""}` : l.buildStartedAt ? ` · build started ${trackerDay(l.buildStartedAt)}` : ""}
             {" · "}{l.mode === "follow" ? "followed read-only (nothing is written to it)" : l.state === "synced" ? "in sync when last sent" : l.state === "error" ? `last push failed${l.error ? `: ${l.error}` : ""}` : "waiting"}
           </p>
         ); })()}
@@ -351,7 +351,7 @@ function JiraTab({ controller, lookups, itemId }: { controller: PortfolioControl
         {link.url ? <a href={link.url} target="_blank" rel="noreferrer">Issue {link.issueKey}</a> : `Issue ${link.issueKey}`}
         {link.status ? <> · Jira status: {link.status}{link.category ? ` (${JIRA_CATEGORY[link.category]})` : ""}</> : null}
         {row?.status ? <> · Build Status: {String(row.status)}</> : null}
-        {link.buildCompletedAt ? ` · Build completed ${new Date(link.buildCompletedAt).toLocaleDateString()}${link.buildStartedAt ? ` (started ${new Date(link.buildStartedAt).toLocaleDateString()}${link.buildDays != null ? `, ${link.buildDays} days` : ""})` : ""}` : link.buildStartedAt ? ` · Build started ${new Date(link.buildStartedAt).toLocaleDateString()}` : ""}
+        {link.buildCompletedAt ? ` · Build completed ${trackerDay(link.buildCompletedAt)}${link.buildStartedAt ? ` (started ${trackerDay(link.buildStartedAt)}${link.buildDays != null ? `, ${link.buildDays} days` : ""})` : ""}` : link.buildStartedAt ? ` · Build started ${trackerDay(link.buildStartedAt)}` : ""}
       </p>
       {message && <p role="status" className="notice">{message}</p>}
       <p>

@@ -32,3 +32,11 @@ export function formatField(f: FieldDef, v: unknown, ctx: FormatCtx): string {
       return String(v);
   }
 }
+
+/** A moment from a tracker (Jira, GitHub) as a date in the person's own date format (the one Product Velocity uses everywhere), never the browser's locale. */
+export function trackerDay(iso: string | null | undefined, today: Date = new Date()): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return formatDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, today);
+}

@@ -96,6 +96,22 @@ describe("loadItems", () => {
     expect(calls.find((c) => c.table === "items_computed")!.ops.map(([, args]) => String(args[0])).join(",")).not.toContain("synced_with"); // not asked of the view
   });
 
+  it("Tracker Status of an initiative linked ABOVE Epic says what its epics add up to, not its own (empty) Jira status, and never \"Not linked\" (issue 735)", async () => {
+    const { client } = fake([
+      { data: [row(1), row(2)] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
+      { data: [] }, // item_github_links
+      { data: [
+        { item_id: "i1", mode: "push", issue_key: "RR-7", sync_checked_at: null, jira_updated_at: null, jira_status: null, issue_level: 2 }, // a Jira Initiative: its own status is never applied
+        { item_id: "i2", mode: "follow", issue_key: "PLAT-12", sync_checked_at: null, jira_updated_at: null, jira_status: "In Review", issue_level: 1 }, // an epic-level link: its own status
+      ] },
+      { data: [{ item_id: "i1", status_category: "done" }, { item_id: "i1", status_category: "indeterminate" }, { item_id: "i2", status_category: "done" }] }, // item_jira_tree, level 1
+      { data: [] },
+    ]);
+    const [a, b] = await new SupabaseDataSource(client, "t1").loadItems();
+    expect(a).toMatchObject({ tracker_status: "1 of 2 epics done", tracker_status_category: "indeterminate" });
+    expect(b).toMatchObject({ tracker_status: "In Review", tracker_status_category: null });
+  });
+
   it("keeps text values of GitHub-driven columns as text (Delivery Status \"Done\", Tracker State \"Open\"), and still turns numbers into numbers", async () => {
     const { client } = fake([{ data: [{ ...row(1), gh_project_status: "Done", gh_state: "Open", delivery_progress_pct: "46.00", issues_total: 7 }] }]);
     const [a] = await new SupabaseDataSource(client, "t1").loadItems();
