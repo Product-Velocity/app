@@ -45,9 +45,12 @@ const defaults = (received: ReceiveItem[]): Record<string, "pv" | "github"> => {
 };
 const LOST = "Sending did not finish for this initiative. Check the tracker (GitHub or Jira) before trying again: an issue may already have been created, and sending again will find it.";
 const SHORT = 280;
+/** The window names no single tracker: one sync can reach GitHub and Jira (the sections below say which). */
+const TITLE = "Sync with delivery platforms";
+const TITLE_DONE = "Synced with delivery platforms";
 /** "Step 1 of 3": where the person is in the sync. The current step is marked for screen readers too. */
-function Steps({ current, tracker }: { current: 1 | 2 | 3; tracker: string }) {
-  const steps = [tracker ? `Incoming from ${tracker}` : "Incoming", tracker ? `Outgoing to ${tracker}` : "Outgoing", "Confirmed"];
+function Steps({ current }: { current: 1 | 2 | 3 }) {
+  const steps = ["Incoming changes", "Outgoing changes", "Confirm"];
   return (
     <ol className="push-steps" aria-label="Steps of the sync">
       {steps.map((t, i) => <li key={t} {...(current === i + 1 ? { "aria-current": "step" as const } : {})} className={current === i + 1 ? "push-step push-step-on" : "push-step"}>{i + 1}. {t}</li>)}
@@ -288,8 +291,8 @@ export function GithubPushDialog({ ids: idsProp, api = REAL_API, newItems, track
     return (
       <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
         <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={focusDialog}>
-          <h2 id={titleId}>Sync{current?.name ?? trackerNames ? ` with ${current?.name ?? trackerNames}` : ""}: new issues first</h2>
-          <Steps current={1} tracker={current?.name ?? trackerNames} />
+          <h2 id={titleId}>{TITLE}: new issues first</h2>
+          <Steps current={1} />
           {current ? <NewItemsStep key={current.tracker} config={current} onContinue={continueToSync} onCancel={onClose} {...(onDone ? { onChanged: onDone } : {})} /> : <p role="status" className="muted">Checking for new issues…</p>}
         </div>
       </div>
@@ -299,8 +302,8 @@ export function GithubPushDialog({ ids: idsProp, api = REAL_API, newItems, track
   return (
     <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape" && phase.kind !== "writing") { e.stopPropagation(); closeAfterPreview(); } }}>
       <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-        <h2 id={titleId}>{phase.kind === "done" ? `Synced${trackerNames ? ` with ${trackerNames}` : ""}` : `Sync${trackerNames ? ` with ${trackerNames}` : ""}`}</h2>
-        {phase.kind !== "error" && <Steps current={phase.kind === "done" || phase.kind === "writing" ? (phase.kind === "done" ? 3 : 2) : phase.kind === "loading" ? 1 : view === "incoming" ? 1 : 2} tracker={phase.kind === "preview" ? trackerLabel : trackerNames} />}
+        <h2 id={titleId}>{phase.kind === "done" ? TITLE_DONE : TITLE}</h2>
+        {phase.kind !== "error" && <Steps current={phase.kind === "done" || phase.kind === "writing" ? (phase.kind === "done" ? 3 : 2) : phase.kind === "loading" ? 1 : view === "incoming" ? 1 : 2} />}
 
         {phase.kind === "loading" && (
           <>
