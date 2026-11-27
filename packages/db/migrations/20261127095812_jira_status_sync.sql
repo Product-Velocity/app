@@ -28,6 +28,8 @@ create trigger jira_status_sync_audit after insert or update or delete on public
   for each row execute function public.audit_row();
 create trigger a_platform_readonly_guard before insert or update or delete on public.jira_status_sync
   for each row execute function platform.readonly_guard();
+create trigger b_platform_suspended_guard before insert or update or delete on public.jira_status_sync
+  for each row execute function platform.suspended_guard();
 
 alter table public.jira_status_sync enable row level security;
 create policy jira_status_sync_select on public.jira_status_sync for select to authenticated
