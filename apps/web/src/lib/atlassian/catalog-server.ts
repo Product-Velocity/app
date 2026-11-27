@@ -1,4 +1,5 @@
 import "server-only";
+import { statusesOfType, type JiraStatusOption } from "./jira-status-map";
 import { jiraProjectDetail, jiraGet } from "./server";
 import type { JiraField, JiraIssueSample } from "./field-catalog";
 import { priorityChoices, proposePriorities, startDateChoices, themeChoices, type FieldChoice, type Moscow } from "./field-map";
@@ -52,4 +53,10 @@ export async function readJiraSiteFields(connectionId: string, siteId: string): 
 export async function readJiraSelectFields(connectionId: string, siteId: string, projectKey: string, issueTypeId: string): Promise<SelectFieldInfo[]> {
   if (!KEY.test(projectKey) || !/^\d{1,12}$/.test(issueTypeId)) throw new Error("Not a Jira project or issue type");
   return parseCreateMeta(await jiraGet<unknown>(connectionId, siteId, `/issue/createmeta/${projectKey}/issuetypes/${issueTypeId}?maxResults=200`));
+}
+
+/** The workflow statuses of the project's initiative issue type (read only), for the Initiative Status sync (issue 738). */
+export async function readJiraProjectStatuses(connectionId: string, siteId: string, projectKey: string, issueTypeId: string): Promise<JiraStatusOption[]> {
+  if (!KEY.test(projectKey) || !/^\d{1,12}$/.test(issueTypeId)) throw new Error("Not a Jira project or issue type");
+  return statusesOfType(await jiraGet<unknown>(connectionId, siteId, `/project/${projectKey}/statuses`), issueTypeId);
 }

@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 
 // CLAUDE.md rule 6 + the exception in docs/decisions/2026-11-03-jira-close-removed.md: the only place that may move a Jira issue to another
 // status is jira-close.ts, and only jira-removed-engine.ts (the confirmed, per-initiative close of an issue Product Velocity owns, after the
-// initiative was deleted) may use it. Everything else that talks to Jira stays free of transitions, status writes and deletes. This test reads
+// initiative was deleted) may use it. Two more narrow writes exist: jira-ready.ts (To do at Ready for build) and jira-status-sync.ts (Initiative Status to the
+// workflow status the admin mapped, issue 738, decision 2026-11-27-jira-initiative-status-sync); both are imported by the send engine only. Everything else that talks to Jira stays free of transitions, status writes and deletes. This test reads
 // the source and fails when another code path gains one; the payload test (outbound-allowlist.test.ts) separately says create/update payloads
 // carry no status.
 const SRC = join(__dirname, "..", "..");
@@ -19,9 +20,17 @@ const SOURCES = files(SRC).map((p) => ({ path: relative(SRC, p).replaceAll("\\",
 const withText = (re: RegExp) => SOURCES.filter((s) => re.test(s.text)).map((s) => s.path).sort();
 
 describe("no other code path can transition or delete a Jira issue", () => {
-  it("only jira-close.ts (Done, removed initiatives) and jira-ready.ts (To do, Ready for build, issue #358) build a transitions request", () => {
-    expect(withText(/\/transitions/)).toEqual(["lib/atlassian/jira-close.ts", "lib/atlassian/jira-ready.ts"]);
-    expect(withText(/\{\s*transition\s*:\s*\{/)).toEqual(["lib/atlassian/jira-close.ts", "lib/atlassian/jira-ready.ts"]);
+  it("only jira-close.ts (Done, removed initiatives), jira-ready.ts (To do, Ready for build, issue #358) and jira-status-sync.ts (the mapped Initiative Status, issue 738) build a transitions request", () => {
+    const three = ["lib/atlassian/jira-close.ts", "lib/atlassian/jira-ready.ts", "lib/atlassian/jira-status-sync.ts"];
+    expect(withText(/\/transitions/)).toEqual(three);
+    expect(withText(/\{\s*transition\s*:\s*\{/)).toEqual(three);
+  });
+  it("only the send engine imports jira-status-sync, and it only posts a transition that leads to the mapped status", () => {
+    expect(withText(/from\s+["'](\.\/|@\/lib\/atlassian\/)jira-status-sync["']/)).toEqual(["lib/atlassian/jira-sync-engine.ts"]);
+    const t = SOURCES.find((x) => x.path === "lib/atlassian/jira-status-sync.ts")!.text;
+    expect(t).toMatch(/t\.toId === target\.id/);
+    expect(t).not.toMatch(/["']DELETE["']/);
+    expect(t.match(/\{\s*transition\s*:\s*\{/g)).toHaveLength(1); // one write, and it names the transition id Jira just listed
   });
   it("only the send engine imports jira-ready, and it only ever uses the To Do category (never Done, never a move back)", () => {
     expect(withText(/from\s+["'](\.\/|@\/lib\/atlassian\/)jira-ready["']/)).toEqual(["lib/atlassian/jira-sync-engine.ts"]);
@@ -46,7 +55,7 @@ describe("no other code path can transition or delete a Jira issue", () => {
     for (const s of SOURCES.filter((x) => (x.path.startsWith("lib/atlassian/") || x.path.startsWith("app/(workspace)/portfolio/jira")))) expect(s.text, s.path).not.toMatch(/["']DELETE["']/);
   });
   it("no Jira payload builder, outside jira-close.ts, writes a status or a resolution", () => {
-    const builders = SOURCES.filter((s) => s.path.startsWith("lib/atlassian/") && s.path !== "lib/atlassian/jira-close.ts" && s.path !== "lib/atlassian/jira-ready.ts");
+    const builders = SOURCES.filter((s) => s.path.startsWith("lib/atlassian/") && s.path !== "lib/atlassian/jira-close.ts" && s.path !== "lib/atlassian/jira-ready.ts" && s.path !== "lib/atlassian/jira-status-sync.ts");
     for (const s of builders) expect(s.text, s.path).not.toMatch(/fields\s*:\s*\{[^}]*\b(status|resolution)\b/);
   });
 });

@@ -13,7 +13,8 @@ import { readJiraLink } from "@/lib/atlassian/read-jira";
 import { jiraProjectDetail } from "@/lib/atlassian/server";
 import { parseFieldMap } from "@/lib/atlassian/field-map";
 import { STATUS_ANCHOR, releaseChoice, unlinkStatus } from "@/lib/atlassian/link-status";
-import { readJiraSiteFields, readJiraSelectFields } from "@/lib/atlassian/catalog-server";
+import { readJiraSiteFields, readJiraSelectFields, readJiraProjectStatuses } from "@/lib/atlassian/catalog-server";
+import { INITIATIVE_STATUSES } from "@/lib/atlassian/jira-status-map";
 import { selectMapFromForm, selectRows } from "@/lib/atlassian/select-map-form";
 import { validateSelectMap } from "@/lib/atlassian/select-map";
 import { configRowsFromForm, jiraMapFromForm, validateJiraMap } from "@/lib/tracker-fields/form";
@@ -233,6 +234,32 @@ export async function saveJiraSelectMap(form: FormData): Promise<void> {
     if (errors.length > 0) back(`status=field-config-invalid&why=${encodeURIComponent(errors.join(" ").slice(0, 400))}`);
   }
   const r = await ctx.supabase.rpc("jira_set_select_map", { p_project: project, p_rows: selectRows(map) });
+  revalidatePath(MAPPING);
+  back(`status=${r.error ? "error" : "field-config-saved"}`);
+}
+
+/**
+ * Saves the Initiative Status to Jira workflow status option of one project (issue 738): the switch and one Jira status per Initiative Status. Off removes the setting.
+ * The statuses are checked against the ones Jira lists for the project's initiative issue type now. Admin only; a person, never Claude. Nothing is written to Jira.
+ */
+export async function saveJiraStatusSync(form: FormData): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const project = String(form.get("project") ?? "");
+  const back: (qs: string) => never = (qs) => redirect(`${MAPPING}?project=${encodeURIComponent(project)}&${qs}&t=${Date.now()}`);
+  const { data: link } = await ctx.supabase.from("jira_project_links").select("connection_id, site_id, jira_project_key, initiative_type_id").eq("tenant_id", ctx.active.tenantId).eq("project_id", project).maybeSingle();
+  if (!link) back("status=error");
+  const on = form.get("status-sync") === "on";
+  const map: Record<string, string> = {};
+  for (const v of INITIATIVE_STATUSES) { const id = String(form.get(`jst:${v}`) ?? "").trim(); if (id) map[v] = id; }
+  if (on) {
+    if (Object.keys(map).length === 0) back(`status=field-config-invalid&why=${encodeURIComponent("Map at least one Initiative Status to a Jira status, or switch the option off.")}`);
+    const known = await readJiraProjectStatuses(link.connection_id as string, link.site_id as string, link.jira_project_key as string, link.initiative_type_id as string).catch((): null => null);
+    if (!known) back(`status=field-config-invalid&why=${encodeURIComponent("The statuses of this Jira project could not be read just now, so the option cannot be saved. Try again in a minute.")}`);
+    const bad = Object.entries(map).filter(([, id]) => !known.some((k) => k.id === id)).map(([v]) => v);
+    if (bad.length > 0) back(`status=field-config-invalid&why=${encodeURIComponent(`${bad.join(", ")}: that status is not one of the statuses of this project's initiative issue type any more. Read again and choose another.`)}`);
+  }
+  const r = await ctx.supabase.rpc("jira_set_status_sync", { p_project: project, p_statuses: on ? map : {} });
   revalidatePath(MAPPING);
   back(`status=${r.error ? "error" : "field-config-saved"}`);
 }

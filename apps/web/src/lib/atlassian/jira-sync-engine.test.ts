@@ -556,3 +556,90 @@ describe("a project that is read only for Jira (issue #656)", () => {
     expect(c.ok && c.lines.map((x) => [x.key, x.ok])).toEqual([["R8P-1", false], ["R8P-2", false]]);
   });
 });
+
+describe("Initiative Status to the Jira workflow status (issue 738)", () => {
+  const tr = (id: string, toId: string, toName: string) => ({ id, name: `to ${toName}`, to: { id: toId, name: toName } });
+  /** The fake Jira plus the two reads and the one write of the status sync, which the plain fake does not know. */
+  function withStatus(current: { id: string; name: string }, transitions: unknown[], post = 204, issueKey = "PLAT-1") {
+    const j = fakeJira({ summary: "Checkout", labels: ["pm:moscow/must", "pm:item/R-1"] }); // the labels the item should carry, so only the status is left to do
+    const status: Hit[] = [];
+    const call: JiraRequest = async (method, path, body) => {
+      if (path.startsWith(`/issue/${issueKey}?fields=status`)) { status.push({ method, path }); return { status: 200, json: { fields: { status: current } } }; }
+      if (path === `/issue/${issueKey}/transitions`) { status.push({ method, path, body }); return method === "GET" ? { status: 200, json: { transitions } } : { status: post, json: post === 400 ? { errorMessages: ["Resolution is required."] } : {} }; }
+      return j.call(method, path, body);
+    };
+    return { call, hits: j.hits, status };
+  }
+  /** Records what was last sent, so the texts and labels are in step and only the status is left to do. */
+  const quiet = async () => { const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: ["pm:moscow/must", "pm:item/R-1"] }).call); if (e.kind === "ok") tables.item_jira_links = link({ sent_hash: e.plan.sentHash }); };
+  const on = (statuses: Record<string, string> = { Active: "2" }, itemOver = {}) => { tables.items = item({ initiative_status: "Active", ...itemOver }); tables.jira_status_sync = { statuses }; };
+
+  it("is off unless the project has the setting: no status read, nothing on the card", async () => {
+    tables.items = item({ initiative_status: "Active" });
+    const j = withStatus({ id: "1", name: "Backlog" }, [tr("21", "2", "WIP Research")]);
+    const e = await evaluate((await loadIt())!, {}, j.call);
+    expect(e.kind === "ok" && e.card.statusSync).toBeUndefined();
+    expect(j.status).toEqual([]);
+  });
+  it("the preview says what would move, and reads only", async () => {
+    on();
+    const j = withStatus({ id: "1", name: "Backlog" }, [tr("21", "2", "WIP Research")]);
+    const e = await evaluate((await loadIt())!, {}, j.call);
+    expect(e.kind === "ok" && e.card.statusSync).toEqual({ text: "Move the status from Backlog to WIP Research", will: true });
+    expect(j.status.every((h) => h.method === "GET")).toBe(true);
+    expect(previewParts(e).plan?.statusSync?.will).toBe(true); // the card is shown even when the texts are in step
+  });
+  it("the confirmed send moves the status with exactly the transition that leads to the mapped status, and reports it", async () => {
+    on();
+    await quiet();
+    const j = withStatus({ id: "1", name: "Backlog" }, [tr("11", "3", "Done"), tr("21", "2", "WIP Research")]);
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    expect(r).toMatchObject({ result: { outcome: "updated", wrote: ["Status: WIP Research"] } });
+    expect(j.status.filter((h) => h.method === "POST")).toEqual([{ method: "POST", path: "/issue/PLAT-1/transitions", body: { transition: { id: "21" } } }]);
+  });
+  it("nothing is written when Jira already has the mapped status", async () => {
+    on();
+    await quiet();
+    const j = withStatus({ id: "2", name: "WIP Research" }, []);
+    const e = await evaluate((await loadIt())!, {}, j.call);
+    expect(e.kind === "ok" && e.card.statusSync).toBeUndefined();
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    expect(r).toMatchObject({ result: { outcome: "unchanged" } });
+    expect(j.status.some((h) => h.method === "POST")).toBe(false);
+  });
+  it("a value with no mapped status leaves Jira alone and says so, without asking Jira anything", async () => {
+    on({ Active: "2" }, { initiative_status: "On hold" });
+    const j = withStatus({ id: "1", name: "Backlog" }, [tr("21", "2", "WIP Research")]);
+    const e = await evaluate((await loadIt())!, {}, j.call);
+    expect(e.kind === "ok" && e.card.statusSync).toEqual({ text: "Initiative Status On hold is not mapped to a Jira status, so the Jira status is left as it is.", will: false });
+    expect(j.status).toEqual([]);
+  });
+  it("a workflow that does not allow the move is a note on the initiative, the rest of the send still happens and nothing is posted", async () => {
+    on();
+    await quiet();
+    const j = withStatus({ id: "3", name: "Done" }, []);
+    const e = await evaluate((await loadIt())!, {}, j.call);
+    expect(e.kind === "ok" && e.card.statusSync).toMatchObject({ will: false, text: expect.stringMatching(/allows no move from Done to the mapped status/) });
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    expect(r).toMatchObject({ result: { outcome: "unchanged" } });
+    expect(j.status.some((h) => h.method === "POST")).toBe(false);
+  });
+  it("Jira's refusal (a Done status that needs a resolution) is shown as Jira said it and does not fail the send", async () => {
+    on({ Active: "3" });
+    await quiet();
+    const j = withStatus({ id: "1", name: "Backlog" }, [tr("11", "3", "Done")], 400);
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    expect(r).toMatchObject({ result: { outcome: "unchanged", message: expect.stringContaining("Status not changed. Jira refused it: Resolution is required.") } });
+  });
+  it("a new issue is created first and its status is set afterwards", async () => {
+    tables.item_jira_links = null;
+    on();
+    const j = withStatus({ id: "1", name: "To Do" }, [tr("21", "2", "WIP Research")], 204, "PLAT-7");
+    const e = await evaluate((await loadIt())!, {}, j.call);
+    expect(e.kind === "ok" && e.card.statusSync).toMatchObject({ will: true, text: expect.stringMatching(/After the issue is created/) });
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    expect(r).toMatchObject({ result: { outcome: "created", issueLabel: "PLAT-7", wrote: expect.arrayContaining(["Status: WIP Research"]) } });
+    const order = [...j.hits.filter((h) => h.method === "POST").map((h) => h.path), ...j.status.filter((h) => h.method === "POST").map((h) => h.path)];
+    expect(order).toEqual(["/issue", "/issue/PLAT-7/transitions"]);
+  });
+});

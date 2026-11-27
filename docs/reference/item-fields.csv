@@ -166,7 +166,7 @@ V36,Outcomes,Time to First Use (days),time_to_first_use_days,Computed,,Computed,
 V37,Outcomes,Retention (%),retention_pct,Number,,Input,New (v4),Not synced.,Column on items,7
 V38,Trust,Created Via Values,created_via_values,Note,UI · Import · Claude (MCP) · GitHub · API · System,System,New (v4),Not synced.,System-set column (read-only),1
 V39,Trust,Locked (tracker-driven),locked_by_source,Computed,Yes · No,System,New (v4),n/a,"Computed (view or function, not stored)",1
-N43,What,Initiative Status,initiative_status,Select,Backlog · Active · On hold · Completed · Cancelled,Input,New,Not synced. A closed linked ticket only sets Build Status and Build Completed; people decide where the initiative itself stands.,Column on items,1
+N43,What,Initiative Status,initiative_status,Select,Backlog · Active · On hold · Completed · Cancelled,Input,New,Not synced to GitHub. Jira: optional per project, set as the Jira workflow status of the initiative issue (one way, after Sync confirmation; Ashu 2026-11-27 #738). A closed linked ticket only sets Build Status and Build Completed; people decide where the initiative itself stands.,Column on items,1
 N44,What,Description,description,Long text,,Input,New,"App -> GitHub: own section 'Description' of the managed block of the issue body (Markdown). Do not put value, customers or decisions in it.",Column on items,1
 N46,Delivery,Last Synced,last_synced,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
 N47,Delivery,Synced With,synced_with,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
