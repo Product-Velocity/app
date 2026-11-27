@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { callbackUrl, eventIssueKey, hashSecret, newSecret, parseToken, planWebhooks, refreshWebhooks, registerWebhook, secretMatches, REFRESH_WHEN_DAYS_LEFT } from "./jira-webhooks";
+import { callbackUrl, decideHeld, eventIssueKey, hashSecret, heldUrlFrom, listedWebhooksFrom, listWebhooks, newSecret, parseToken, planWebhooks, refreshWebhooks, registerWebhook, secretMatches, webhookOfProject, REFRESH_WHEN_DAYS_LEFT } from "./jira-webhooks";
 import type { JiraRequest } from "./jira-write";
 
 const noSleep = async () => {};
@@ -78,5 +78,45 @@ describe("registering and refreshing against a fake Jira", () => {
     expect(await refreshWebhooks(async () => ({ status: 200, json: { expirationDate: "2026-12-03T00:00:00.000+0000" } }), ["7"], noSleep)).toEqual({ expiresAt: "2026-12-03T00:00:00.000Z", unknown: false });
     expect(await refreshWebhooks(async () => ({ status: 404, json: {} }), ["7"], noSleep)).toEqual({ expiresAt: null, unknown: true });
     expect(await refreshWebhooks(async () => ({ status: 500, json: {} }), ["7"], noSleep)).toEqual({ expiresAt: null, unknown: false });
+  });
+});
+
+describe("an address Jira still holds from before a reconnect (issue 744)", () => {
+  const ORIGIN = "https://pv.example";
+  const OLD = "68a2fdca-c863-4891-979d-406d749154f1";
+  const SECRET = "QKx3hKHTRLpTy5Llszx7Vy5-EY7CdTD_";
+  const message = (url: string) => `Only a single URL per user is allowed to be registered via REST API. The currently used URL: ${url}`;
+  const held = `${ORIGIN}/api/jira/webhook/${OLD}.${SECRET}`;
+
+  it("registering says single_url and keeps the whole message, so the held address can be read", async () => {
+    const r = await registerWebhook(async () => ({ status: 200, json: { webhookRegistrationResult: [{ errors: [message(held)] }] } }), "https://pv.example/x", "PLAT", noSleep);
+    expect(r).toMatchObject({ ok: false, kind: "single_url" });
+    expect(heldUrlFrom((r as { message: string }).message, ORIGIN)).toEqual({ url: held, linkId: OLD, secret: SECRET });
+  });
+  it("reads the held address only when it is OUR address with a well-formed token", () => {
+    expect(heldUrlFrom(message(held), ORIGIN)).toMatchObject({ linkId: OLD, secret: SECRET });
+    expect(heldUrlFrom(message(`${held}.`), ORIGIN)).toMatchObject({ secret: SECRET }); // a full stop after the address
+    expect(heldUrlFrom(message(held), "https://other.example")).toBeNull();
+    expect(heldUrlFrom(message(`${ORIGIN}/api/jira/webhook/not-a-token`), ORIGIN)).toBeNull();
+    expect(heldUrlFrom("JQL not allowed", ORIGIN)).toBeNull();
+    expect(heldUrlFrom("Only a single URL per user is allowed to be registered via REST API.", ORIGIN)).toBeNull();
+  });
+  it("adopts its own address, removes an orphan of a reconnect, and leaves everything else alone", () => {
+    const h = heldUrlFrom(message(held), ORIGIN);
+    expect(decideHeld(h, OLD, new Set([OLD]))).toEqual({ do: "adopt", secret: SECRET });
+    expect(decideHeld(h, LINK, new Set([LINK]))).toEqual({ do: "remove_stale" }); // the held link exists nowhere: it can never be delivered to
+    expect(decideHeld(h, LINK, new Set([LINK, OLD]))).toMatchObject({ do: "leave", why: expect.stringMatching(/another linked project/) }); // another workspace's or project's link
+    expect(decideHeld(null, LINK, new Set([LINK]))).toMatchObject({ do: "leave", why: expect.stringMatching(/not one of Product Velocity's/) });
+  });
+  it("lists the webhooks of the sign-in (ids, filter, expiry only) and finds the one of a project", async () => {
+    const json = { values: [{ id: 5, jqlFilter: "project = RR", events: ["x"], secret: "ignored", expirationDate: "2026-12-20T10:00:00.000+0000" }, { id: "6", jqlFilter: "project  =  PLAT" }, { id: "x" }, { jqlFilter: "no id" }] };
+    expect(listedWebhooksFrom(json)).toEqual([{ id: "5", jqlFilter: "project = RR", expiresAt: "2026-12-20T10:00:00.000Z" }, { id: "6", jqlFilter: "project  =  PLAT", expiresAt: null }]);
+    expect(webhookOfProject(listedWebhooksFrom(json), "RR")?.id).toBe("5");
+    expect(webhookOfProject(listedWebhooksFrom(json), "plat")?.id).toBe("6");
+    expect(webhookOfProject(listedWebhooksFrom(json), "OTHER")).toBeNull();
+    const paths: string[] = [];
+    expect(await listWebhooks(async (m, p) => { paths.push(`${m} ${p}`); return { status: 200, json }; }, noSleep)).toHaveLength(2);
+    expect(paths).toEqual(["GET /webhook?maxResults=100"]);
+    expect(await listWebhooks(async () => ({ status: 403, json: {} }), noSleep)).toBeNull();
   });
 });

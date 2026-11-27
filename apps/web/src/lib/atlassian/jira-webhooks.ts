@@ -59,7 +59,7 @@ export function planWebhooks(links: WebhookLink[], rows: WebhookRow[], now: numb
 type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (typeof v === "object" && v !== null ? (v as Obj) : {});
 
-export type RegisterOutcome = { ok: true; id: string } | { ok: false; kind: "needs_scope" | "rejected" | "unavailable"; message: string };
+export type RegisterOutcome = { ok: true; id: string } | { ok: false; kind: "needs_scope" | "rejected" | "unavailable" | "single_url"; message: string };
 
 /** Registers one webhook for one project (events: issue created/updated, JQL filter on the project). The URL must be https. */
 export async function registerWebhook(call: JiraRequest, url: string, projectKey: string, sleep?: Sleep): Promise<RegisterOutcome> {
@@ -71,8 +71,55 @@ export async function registerWebhook(call: JiraRequest, url: string, projectKey
   const id = first.createdWebhookId;
   if (r.status === 200 && (typeof id === "number" || typeof id === "string") && /^[0-9]{1,20}$/.test(String(id))) return { ok: true, id: String(id) };
   const errs = Array.isArray(first.errors) ? (first.errors as unknown[]).map(String).join("; ") : "";
-  return { ok: false, kind: "rejected", message: (errs || whyJira(r.json) || `Jira refused it (${r.status}).`).slice(0, 300) };
+  const why = errs || whyJira(r.json) || `Jira refused it (${r.status}).`;
+  // Jira allows ONE callback address per sign-in; one still held from before a reconnect blocks the new one (issue 744): the answer names it, so it is kept whole
+  if (/single URL per user/i.test(why)) return { ok: false, kind: "single_url", message: why.slice(0, 600) };
+  return { ok: false, kind: "rejected", message: why.slice(0, 300) };
 }
+
+// ---- an address Jira still holds from before a reconnect (issue 744) ----
+export type HeldUrl = { url: string; linkId: string; secret: string };
+/** The address Jira says it already holds for this sign-in ("Only a single URL per user ... The currently used URL: <url>"), only when it is OUR address with a well-formed token. */
+export function heldUrlFrom(message: string, origin: string): HeldUrl | null {
+  if (!/single URL per user/i.test(message)) return null;
+  const m = /currently used URL:\s*(https:\/\/\S+)/i.exec(message);
+  if (!m) return null;
+  const url = m[1]!.replace(/[.,;)]+$/, "");
+  const base = `${origin.replace(/\/$/, "")}/api/jira/webhook/`;
+  if (!url.startsWith(base)) return null;
+  const t = parseToken(url.slice(base.length));
+  return t ? { url, linkId: t.linkId, secret: t.secret } : null;
+}
+export type HeldDecision = { do: "adopt"; secret: string } | { do: "remove_stale" } | { do: "leave"; why: string };
+/** What to do about the held address. Its own link: adopt it. A link that exists nowhere in Product Velocity (left over from a reconnect): it can never be delivered to, so remove it. Anything else: change nothing. */
+export function decideHeld(held: HeldUrl | null, thisLinkId: string, existingLinkIds: ReadonlySet<string>): HeldDecision {
+  if (!held) return { do: "leave", why: "Jira already holds a webhook address for this sign-in that is not one of Product Velocity's, so it was left alone. Remove it in Jira or sign in with another account." };
+  if (held.linkId === thisLinkId) return { do: "adopt", secret: held.secret };
+  if (!existingLinkIds.has(held.linkId)) return { do: "remove_stale" };
+  return { do: "leave", why: "Jira allows one webhook address per sign-in and this sign-in's address belongs to another linked project, so this project is read at the daily check." };
+}
+
+export type ListedWebhook = { id: string; jqlFilter: string; expiresAt: string | null };
+/** The dynamic webhooks of this sign-in, from GET /webhook. Only ids, the filter and the expiry are kept. */
+export function listedWebhooksFrom(json: unknown): ListedWebhook[] {
+  const out: ListedWebhook[] = [];
+  for (const v of Array.isArray(obj(json).values) ? (obj(json).values as unknown[]) : []) {
+    const o = obj(v);
+    const id = o.id;
+    if ((typeof id !== "number" && typeof id !== "string") || !/^[0-9]{1,20}$/.test(String(id))) continue;
+    const exp = typeof o.expirationDate === "string" && !Number.isNaN(Date.parse(o.expirationDate)) ? new Date(o.expirationDate).toISOString() : null;
+    out.push({ id: String(id), jqlFilter: typeof o.jqlFilter === "string" ? o.jqlFilter.slice(0, 300) : "", expiresAt: exp });
+  }
+  return out;
+}
+/** Reads (no write) the webhooks registered for this sign-in; null when Jira could not be read. */
+export async function listWebhooks(call: JiraRequest, sleep?: Sleep): Promise<ListedWebhook[] | null> {
+  const r = await withBackoff(() => call("GET", "/webhook?maxResults=100"), sleep);
+  return r.status === 200 ? listedWebhooksFrom(r.json) : null;
+}
+/** The listed webhook that watches exactly this project. */
+export const webhookOfProject = (list: ListedWebhook[], projectKey: string): ListedWebhook | null =>
+  list.find((x) => x.jqlFilter.replace(/\s+/g, " ").trim().toLowerCase() === `project = ${projectKey}`.toLowerCase()) ?? null;
 
 /** Extends the given webhooks (up to 100 per call). Returns the new expiry, or null when Jira no longer knows them (register again). */
 export async function refreshWebhooks(call: JiraRequest, ids: string[], sleep?: Sleep): Promise<{ expiresAt: string | null; unknown: boolean }> {

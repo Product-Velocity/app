@@ -3,8 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { applyLinkedStatuses, recordLinkedStatusHistory } from "./refresh-jira";
 import type { LinkToRead } from "./read-jira";
 import { describeLines } from "./jira-events";
-import { callbackUrl, eventIssueKey, hashSecret, newSecret, parseToken, planWebhooks, refreshWebhooks, registerWebhook, secretMatches, type WebhookRow } from "./jira-webhooks";
-import { jiraRequest } from "./server";
+import { callbackUrl, decideHeld, eventIssueKey, hashSecret, heldUrlFrom, listWebhooks, newSecret, parseToken, planWebhooks, refreshWebhooks, registerWebhook, secretMatches, webhookOfProject, type RegisterOutcome, type WebhookRow } from "./jira-webhooks";
+import { jiraRequest, jiraWebhookRemover } from "./server";
 import { ReconnectNeeded } from "./token-provider";
 
 // Server side of the Jira webhooks (spike J3): switched ON by JIRA_WEBHOOKS=1 and JIRA_WEBHOOK_ORIGIN (the public https address of this
@@ -23,6 +23,9 @@ export async function maintainWebhooks(blocked: Set<string>): Promise<{ register
   const granted = new Map(((conns ?? []) as { id: string; scopes: string }[]).filter((c) => c.scopes.split(" ").includes("manage:jira-webhook")).map((c) => [c.id, true]));
   const { data: links } = await admin.from("jira_project_links").select("id, tenant_id, connection_id, site_id, jira_project_key").in("connection_id", [...granted.keys()]);
   const { data: rows } = await admin.from("jira_webhooks").select("link_id, jira_webhook_id, state, expires_at");
+  // every project link of every workspace: a held address whose link is among them is not an orphan of a reconnect (issue 744)
+  const { data: allLinks } = await admin.from("jira_project_links").select("id");
+  const allLinkIds = new Set(((allLinks ?? []) as { id: string }[]).map((x) => x.id));
   const plan = planWebhooks(((links ?? []) as LinkRow[]).map((l) => ({ id: l.id, jira_project_key: l.jira_project_key })), (rows ?? []) as WebhookRow[], Date.now());
   const byId = new Map(((links ?? []) as LinkRow[]).map((l) => [l.id, l]));
   for (const a of plan) {
@@ -36,15 +39,40 @@ export async function maintainWebhooks(blocked: Set<string>): Promise<{ register
         if (r.expiresAt) { await admin.from("jira_webhooks").update({ expires_at: r.expiresAt, state: "active", last_error: null, updated_at: new Date().toISOString() }).eq("link_id", l.id); out.refreshed++; continue; }
         if (!r.unknown) { out.failed++; continue; } // a passing problem: the next daily run tries again, the webhook is still valid for days
       }
-      const secret = newSecret();
-      const reg = await registerWebhook(call, callbackUrl(origin, l.id, secret), l.jira_project_key);
-      const base = { link_id: l.id, tenant_id: l.tenant_id, connection_id: l.connection_id, site_id: l.site_id, secret_hash: hashSecret(secret), updated_at: new Date().toISOString() };
-      if (reg.ok) {
+      let secret = newSecret();
+      let reg: RegisterOutcome = await registerWebhook(call, callbackUrl(origin, l.id, secret), l.jira_project_key);
+      let adopted: { secret: string; id: string; expiresAt: string | null } | null = null;
+      // Jira allows one callback address per sign-in. After a reconnect the old registration is still held (its link no longer exists): adopt it when it is this link's own,
+      // remove it when it is an orphan, then register again; anything else is left alone and said so (issue 744)
+      if (!reg.ok && reg.kind === "single_url") {
+        const decision = decideHeld(heldUrlFrom(reg.message, origin), l.id, allLinkIds);
+        if (decision.do === "adopt") {
+          const mine = await listWebhooks(call).then((list) => (list ? webhookOfProject(list, l.jira_project_key) : null));
+          if (mine) adopted = { secret: decision.secret, id: mine.id, expiresAt: mine.expiresAt };
+          else reg = { ok: false, kind: "rejected", message: "Jira holds this project's webhook address but did not list the webhook, so it is tried again tomorrow." };
+        } else if (decision.do === "remove_stale") {
+          const list = await listWebhooks(call);
+          if (list && list.length > 0 && list.length <= 100) {
+            const removed = await jiraWebhookRemover(l.connection_id, l.site_id)(list.map((x) => x.id));
+            if (removed.ok) { secret = newSecret(); reg = await registerWebhook(call, callbackUrl(origin, l.id, secret), l.jira_project_key); }
+            else reg = { ok: false, kind: "unavailable", message: `Jira would not remove the webhook left from before the reconnect (${removed.status}). It is tried again tomorrow.` };
+          } else reg = { ok: false, kind: "unavailable", message: "Jira could not list the webhook left from before the reconnect. It is tried again tomorrow." };
+        } else reg = { ok: false, kind: "rejected", message: decision.why };
+      }
+      const now = new Date().toISOString();
+      const base = { link_id: l.id, tenant_id: l.tenant_id, connection_id: l.connection_id, site_id: l.site_id, secret_hash: hashSecret(adopted ? adopted.secret : secret), updated_at: now };
+      if (adopted) {
+        await admin.from("jira_webhooks").upsert({ ...base, jira_webhook_id: adopted.id, state: "active", expires_at: adopted.expiresAt ?? new Date(Date.now() + 29 * 86_400_000).toISOString(), last_error: null }, { onConflict: "link_id" });
+        out.registered++;
+      } else if (reg.ok) {
         // Jira reports the expiry in the list, not in the registration answer: 30 days is the documented value until the spike shows otherwise
         await admin.from("jira_webhooks").upsert({ ...base, jira_webhook_id: reg.id, state: "active", expires_at: new Date(Date.now() + 29 * 86_400_000).toISOString(), last_error: null }, { onConflict: "link_id" });
         out.registered++;
       } else {
-        await admin.from("jira_webhooks").upsert({ ...base, jira_webhook_id: null, state: reg.kind === "needs_scope" ? "needs_scope" : "failed", last_error: reg.message }, { onConflict: "link_id" });
+        const state = reg.kind === "needs_scope" ? "needs_scope" : "failed";
+        // a failed attempt never replaces the secret of a registration that works: only its state and the reason change
+        if (existing?.jira_webhook_id) await admin.from("jira_webhooks").update({ state, last_error: reg.message, updated_at: now }).eq("link_id", l.id);
+        else await admin.from("jira_webhooks").upsert({ ...base, jira_webhook_id: null, state, last_error: reg.message }, { onConflict: "link_id" });
         if (reg.kind === "needs_scope") out.needsScope++; else out.failed++;
       }
     } catch (e) {

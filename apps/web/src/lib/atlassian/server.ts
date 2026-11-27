@@ -104,6 +104,26 @@ export async function jiraFieldChoices(connectionId: string, siteId: string): Pr
 }
 
 /**
+ * Removes dynamic webhooks of this sign-in by id (issue 744): Jira `DELETE /webhook`, and nothing else. The ONE DELETE of a Jira write path besides the connection
+ * check's own cleanup, used only by the daily webhook maintenance, only for a registration left over from a reconnect that points at our own address and at a link that
+ * no longer exists (jira-webhooks.ts decideHeld). The ids come from Jira's own list for this sign-in.
+ */
+export function jiraWebhookRemover(connectionId: string, siteId: string): (ids: string[]) => Promise<{ ok: boolean; status: number }> {
+  return async (ids) => {
+    const clean = ids.filter((i) => /^[0-9]{1,20}$/.test(i)).slice(0, 100);
+    if (clean.length === 0) return { ok: false, status: 0 };
+    const token = await accessTokenFor(connectionId);
+    const res = await fetch(`${API_BASE}/ex/jira/${siteId}/rest/api/3/webhook`, {
+      method: "DELETE",
+      signal: AbortSignal.timeout(20_000),
+      headers: { authorization: `Bearer ${token}`, accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify({ webhookIds: clean.map(Number) }),
+    });
+    return { ok: res.status === 202 || res.status === 200 || res.status === 204, status: res.status };
+  };
+}
+
+/**
  * A request function for the connection checks (issue #452): like `jiraRequest` but it also allows DELETE and returns the status instead of
  * throwing, which is what the write check needs to clean up after itself. Uses the stored sign-in; nothing is logged.
  */
