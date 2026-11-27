@@ -90,6 +90,14 @@ describe("create", () => {
     const first = plan({ pv: pv({ code: "R-102" }), jira: labelled });
     expect(plan({ pv: pv({ code: "R-102" }), jira: labelled, sentHash: first.sentHash }).action).toBe("unchanged");
   });
+  it("labels the Initiative Phase (pm:phase/discover), on by default, and a switched-off slot leaves it out", () => {
+    const on = plan({ pv: pv({ initiative_phase: "Discover" }), jira: null, create: { projectKey: "PLAT", issueTypeId: "10000" } });
+    expect(on.fields.labels).toContain("pm:phase/discover");
+    expect(plan({ pv: pv({ initiative_phase: "Roll-out" }), jira: null, create: { projectKey: "PLAT", issueTypeId: "10000" } }).fields.labels).toContain("pm:phase/roll-out");
+    const off = plan({ pv: pv({ initiative_phase: "Discover" }), jira: null, map: { off: ["jira.label.phase"] }, create: { projectKey: "PLAT", issueTypeId: "10000" } });
+    expect(off.fields.labels).not.toContain("pm:phase/discover");
+    expect(off.notes.join(" ")).toMatch(/Initiative Phase label not sent/);
+  });
   it("an item whose code is not a plain label (or has none) falls back to the hash marker", () => {
     expect(plan({ pv: pv({ code: "R 102" }), jira: null, create: { projectKey: "PLAT", issueTypeId: "10000" } }).marker).toBe(markerFor(pv().id));
   });
@@ -261,7 +269,7 @@ describe("select fields: Health, Initiative Status and Initiative Phase (issue #
   const opt = (id: string, value: string) => ({ id, value });
   const nowSel = (o: Record<string, unknown> = {}) => ({ "jira.select.health": opt("201", "On Track"), "jira.select.initiative_status": opt("211", "Active"), "jira.select.initiative_phase": opt("221", "Build"), ...o });
   const agreed = { ...inStep, sel_health: "On Track", sel_initiative_status: "Active", sel_initiative_phase: "Build" };
-  const sel = (o: object = {}) => planJiraSend({ pv: pv({ health: "On Track", initiative_status: "Active", initiative_phase: "Build" }), jira: jira(), base: agreed, map: { selects }, selectsNow: nowSel(), ...o });
+  const sel = (o: object = {}) => planJiraSend({ pv: pv({ health: "On Track", initiative_status: "Active", initiative_phase: "Build" }), jira: jira({ labels: ["pm:moscow/must", "pm:phase/build"] }), base: agreed, map: { selects }, selectsNow: nowSel(), ...o });
 
   it("in step: nothing is sent and nothing is asked", () => {
     const p = sel();

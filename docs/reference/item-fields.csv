@@ -14,7 +14,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 14,Who,Business Owner,sponsor,Select,,Input,Modify,Not synced.,Column on items,1
 15,Who,Request Origin,request_origin,Select,Customer · Sales · Leadership · Product analysis · Partner / vendor · Competitor move,Input,Keep,,Column on items,1
 16,Who,Customers Requesting (#),customers_requesting,Number,,Input,Keep,Never synced (commercial).,Column on items,1
-17,Who,Product Manager,product_manager,Person,,Input,Modify,Not synced.,Column on items,1
+17,Who,Product Manager,product_manager,Person,,Input,Modify,"Not synced to GitHub. Jira: set as the assignee when the issue is created (matched by email), never changed afterwards (Ashu, 2026-11-27, #733).",Column on items,1
 18,Who,Engineering Manager,engineering_manager,Person,,Input,Modify,Suggestion only.,Column on items,1
 19,Who,Designer,designer,Person,,Input,Modify,Not synced.,Column on items,1
 20,Who,Analyst,analyst,Person,,Input,Modify,Not synced.,Column on items,1

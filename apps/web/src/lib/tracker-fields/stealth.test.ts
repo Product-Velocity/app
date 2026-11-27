@@ -36,7 +36,7 @@ describe("Jira under other names", () => {
   const map = effectiveJiraMap({}, ROWS);
   it("labels, no base label, and a changed marker", () => {
     const p = buildJiraPayload({ item, fields: map, projectName: "Platform" });
-    expect(p.fields.labels).toEqual(["pm:project/platform", "moscow/must", "rank/top-10", "pm:define"]);
+    expect(p.fields.labels).toEqual(["pm:project/platform", "moscow/must", "rank/top-10", "pm:phase/define", "pm:define"]);
   });
   it("labels written under the old names are removed on update; people's labels and the removed label stay", () => {
     const merged = mergeLabels(["team-a", "product-velocity", "pm:moscow/should", "removed", "pm:removed"], ["moscow/must"], map.names);

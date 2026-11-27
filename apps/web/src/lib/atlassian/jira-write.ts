@@ -45,8 +45,8 @@ async function run(req: () => ReturnType<JiraRequest>, sleep: Sleep): Promise<{ 
 }
 
 /** The optional fields a refusal may leave out and retry without: Priority, the due date and custom fields. Never the summary, description, labels, project, type or parent. */
-const OPTIONAL_FIELD = /^(priority|duedate|customfield_\d{1,9})$/;
-const FIELD_NAME: Record<string, string> = { priority: "Priority", duedate: "Due date" };
+const OPTIONAL_FIELD = /^(priority|duedate|assignee|customfield_\d{1,9})$/;
+const FIELD_NAME: Record<string, string> = { priority: "Priority", duedate: "Due date", assignee: "Assignee" };
 /** The optional fields of `fields` that a 400 names in its `errors`, with Jira's own reason. */
 export function refusedOptional(json: unknown, fields: Record<string, unknown>): { key: string; why: string }[] {
   return Object.entries(obj(obj(json).errors)).filter(([k]) => OPTIONAL_FIELD.test(k) && k in fields).map(([k, v]) => ({ key: k, why: String(v).replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 160) }));

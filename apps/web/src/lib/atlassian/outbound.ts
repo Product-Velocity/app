@@ -1,4 +1,4 @@
-import { DEFAULT_NAMES, isOwnedLabel, resolveNames, type Names, changeTypeLabel, focusAreaLabel, groupLabel, moscowLabel, projectLabel, plannedQuarterLabel, rankBandLabel, tagLabels, valueTypeLabel, reviewLabel } from "@pv/github";
+import { DEFAULT_NAMES, isOwnedLabel, resolveNames, type Names, changeTypeLabel, focusAreaLabel, groupLabel, moscowLabel, projectLabel, initiativePhaseLabel, plannedQuarterLabel, rankBandLabel, tagLabels, valueTypeLabel, reviewLabel } from "@pv/github";
 import { composeDescription, type Link } from "./jira-sections";
 import { selectsPayload, type SelectMap } from "./select-map";
 
@@ -64,7 +64,7 @@ function read(item: Record<string, unknown>, key: JiraOutboundField): unknown { 
 export function desiredLabels(item: Record<string, unknown>, projectName?: string, off: readonly string[] = [], optIn: readonly string[] = [], names?: Names): string[] {
   const on = (slot: string) => !off.includes(slot);
   const opt = (slot: string) => optIn.includes(slot);
-  return [resolveNames(names).base || null, projectName && on("jira.label.project") ? projectLabel(projectName, names) : null, on("jira.label.moscow") ? moscowLabel(read(item, "moscow"), names) : null, on("jira.label.rank") ? rankBandLabel(read(item, "stack_rank"), names) : null, on("jira.label.type") ? changeTypeLabel(read(item, "change_type"), names) : null, on("jira.label.group") ? groupLabel(read(item, "theme"), names) : null, opt("jira.label.focus") ? focusAreaLabel(read(item, "focus_area"), names) : null, on("jira.label.value") ? valueTypeLabel(read(item, "value_type"), names) : null, on("jira.label.quarter") ? plannedQuarterLabel(read(item, "g2m_quarter"), names) : null, ...(opt("jira.label.tags") ? tagLabels(read(item, "tags"), names) : []), reviewLabel(read(item, "initiative_phase"), names)].filter((l): l is string => !!l);
+  return [resolveNames(names).base || null, projectName && on("jira.label.project") ? projectLabel(projectName, names) : null, on("jira.label.moscow") ? moscowLabel(read(item, "moscow"), names) : null, on("jira.label.rank") ? rankBandLabel(read(item, "stack_rank"), names) : null, on("jira.label.type") ? changeTypeLabel(read(item, "change_type"), names) : null, on("jira.label.group") ? groupLabel(read(item, "theme"), names) : null, opt("jira.label.focus") ? focusAreaLabel(read(item, "focus_area"), names) : null, on("jira.label.value") ? valueTypeLabel(read(item, "value_type"), names) : null, on("jira.label.quarter") ? plannedQuarterLabel(read(item, "g2m_quarter"), names) : null, on("jira.label.phase") ? initiativePhaseLabel(read(item, "initiative_phase"), names) : null, ...(opt("jira.label.tags") ? tagLabels(read(item, "tags"), names) : []), reviewLabel(read(item, "initiative_phase"), names)].filter((l): l is string => !!l);
 }
 /** Put on a Jira issue when its initiative was removed in Product Velocity and the person confirmed (jira-close.ts). Not an "owned" label: a later send must not strip it. */
 export const REMOVED_LABEL = DEFAULT_NAMES.removed;
@@ -109,7 +109,7 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
     if (map.theme && /^customfield_\d{1,9}$/.test(map.theme)) f[map.theme] = focus;
     else notes.push("Theme not sent: this Jira site's Theme field is not mapped (Focus Area is also sent as a label when that switch is on).");
   }
-  const switchedOff: [string, string, unknown][] = [["jira.label.moscow", "MoSCoW label", read(item, "moscow")], ["jira.label.rank", "Rank label", read(item, "stack_rank")], ["jira.label.type", "Change Type label", read(item, "change_type")], ["jira.label.group", "Initiative Group label", read(item, "theme")], ["jira.label.quarter", "Planned Quarter label", read(item, "g2m_quarter")]];
+  const switchedOff: [string, string, unknown][] = [["jira.label.moscow", "MoSCoW label", read(item, "moscow")], ["jira.label.rank", "Rank label", read(item, "stack_rank")], ["jira.label.type", "Change Type label", read(item, "change_type")], ["jira.label.group", "Initiative Group label", read(item, "theme")], ["jira.label.quarter", "Planned Quarter label", read(item, "g2m_quarter")], ["jira.label.phase", "Initiative Phase label", read(item, "initiative_phase")]];
   for (const [slot, what, v] of switchedOff) if (off(slot) && v !== undefined && v !== null && v !== "") notes.push(`${what} not sent: switched off in the field configuration.`);
   if (off("jira.body.artifacts") && (input.artifacts?.length ?? 0) > 0) notes.push("Artifact links not sent: switched off in the field configuration.");
   if (off("jira.body.files") && (input.files?.length ?? 0) > 0) notes.push("File links not sent: switched off in the field configuration.");

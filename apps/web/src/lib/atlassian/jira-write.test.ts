@@ -71,3 +71,14 @@ describe("Jira write client", () => {
     expect(bad.calls).toBe(1);
   });
 });
+
+describe("assignee on a create (issue 733)", () => {
+  it("an assignee Jira refuses (not on the screen, or not assignable) is left out, the issue is still created and the note says so", async () => {
+    const bodies: unknown[] = [];
+    const call = (async (_m: string, _p: string, body?: unknown) => { bodies.push(body); return bodies.length === 1 ? { status: 400, json: { errors: { assignee: "User cannot be assigned issues." } } } : { status: 201, json: { key: "PLAT-9", id: "1" } }; }) as unknown as JiraRequest;
+    const r = await createIssue(call, { summary: "x", assignee: { accountId: "acc-1" }, labels: [] }, async () => {});
+    expect(r).toMatchObject({ ok: true, key: "PLAT-9" });
+    expect((bodies[1] as { fields: object }).fields).not.toHaveProperty("assignee");
+    expect((r as { dropped?: string[] }).dropped?.[0]).toMatch(/^Not sent: Assignee \(User cannot be assigned/);
+  });
+});

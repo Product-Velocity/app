@@ -3,7 +3,7 @@
 // every builder behaves exactly as before.
 
 /** The label families that carry a value: `<prefix><slug>`. The prefix includes its trailing "/" (default `pv:moscow/`). */
-export const LABEL_KINDS = ["project", "moscow", "rank", "type", "group", "focus", "value", "quarter", "tag"] as const;
+export const LABEL_KINDS = ["project", "moscow", "rank", "type", "group", "focus", "value", "quarter", "phase", "tag"] as const;
 export type LabelKind = (typeof LABEL_KINDS)[number];
 
 /**
@@ -18,7 +18,7 @@ export const DEFAULT_NAMESPACE = "pm:";
 export const LEGACY_REMOVED = "pv:removed";
 
 export const DEFAULT_NAMES = {
-  prefix: { project: "pm:project/", moscow: "pm:moscow/", rank: "pm:rank/", type: "pm:type/", group: "pm:group/", focus: "pm:focus/", value: "pm:value/", quarter: "pm:quarter/", tag: "pm:tag/" } as Record<LabelKind, string>,
+  prefix: { project: "pm:project/", moscow: "pm:moscow/", rank: "pm:rank/", type: "pm:type/", group: "pm:group/", focus: "pm:focus/", value: "pm:value/", quarter: "pm:quarter/", phase: "pm:phase/", tag: "pm:tag/" } as Record<LabelKind, string>,
   /** No base label by default (it used to be `product-velocity`). A project can still choose one. */
   base: "",
   removed: "pm:removed",

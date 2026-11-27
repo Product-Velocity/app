@@ -17,6 +17,7 @@ import { createIssue, updateIssue, type JiraRequest } from "./jira-write";
 import { parseFieldMap } from "./field-map";
 import { documentLinks, documentsPreviewNote, isClaudeStoredLink } from "@pv/domain";
 import { wroteJira } from "@/lib/sync-wrote";
+import { addAssignee, productManagerEmail } from "./jira-assignee";
 import { documentUrl, shareUrl } from "@/lib/files/serve";
 import type { Link } from "./jira-sections";
 import { dropMissingFields } from "./mapped-fields";
@@ -32,7 +33,7 @@ import { planJiraReady, writeJiraReady, type JiraReadyPlan } from "./jira-ready"
 
 type Db = SupabaseClient;
 export type Ctx = { supabase: Db; tenantId: string; userId: string; /** Public address of this app, for the share links of files (Files section); without it files are not linked. */ appUrl?: string };
-type ItemRow = { initiative_phase?: string | null; tags?: string[]; focus_area?: string | null; value_type?: string | null; g2m_quarter?: string | null; id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; stack_rank: number | null; change_type: string | null; theme: string | null; home_project_id: string | null };
+type ItemRow = { /** The Product Manager (a workspace member): the assignee of a NEW Jira issue only. */ owner_user_id?: string | null; initiative_phase?: string | null; tags?: string[]; focus_area?: string | null; value_type?: string | null; g2m_quarter?: string | null; id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; stack_rank: number | null; change_type: string | null; theme: string | null; home_project_id: string | null };
 /** The real column of each allowlisted field (G2M Date (est) lives in `end_date`): a column that does not exist makes the whole read fail, so they come from the field registry, as the GitHub push does. */
 /** The allowlisted fields that are columns of items; Tags live in item_tags and are read apart. */
 export const ITEM_COLUMNS: Record<string, string> = Object.fromEntries(OUTBOUND_JIRA_FIELDS.flatMap((k) => { const c = columnOnItems(FIELD_BY_KEY[k]!); return c ? [[k, c]] : []; }));
@@ -40,9 +41,9 @@ type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_
 type ProjectLink = { /** The project is read only for Jira (issue #656): nothing is ever written to Jira for it. */ read_only?: boolean; selectRows?: unknown; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown; /** Rows of tracker_field_config (the field configuration), as stored. */ config?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
-export type Loaded = { /** Ready for build (issue #358): Gate B passed (ready_for_build_at set, phase Build) and the Jira move to To do was not handled yet. */ readyPending?: boolean; /** Artifact links and share links of files, for the Artifacts and Files sections. */ artifacts?: Link[]; files?: Link[]; /** The documents left shared, each as a name and a public link (the Documents section). */ documents?: Link[]; /** Epics asked for under this initiative (issue #431) that are not under it yet: pending ones and the ones Jira refused last time. */ epicRequests?: EpicRequest[]; /** What the preview says about the documents (sent, skipped, too long). */ documentsNote?: string; /** Files that have no share link and so are not in the description. */ unsharedFiles?: number; projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
+export type Loaded = { /** A create only: the Product Manager as the assignee (issue 733): the email to match in Jira (read here, never shown), or that the initiative has none. */ pm?: { email: string | null; none: boolean }; /** Ready for build (issue #358): Gate B passed (ready_for_build_at set, phase Build) and the Jira move to To do was not handled yet. */ readyPending?: boolean; /** Artifact links and share links of files, for the Artifacts and Files sections. */ artifacts?: Link[]; files?: Link[]; /** The documents left shared, each as a name and a public link (the Documents section). */ documents?: Link[]; /** Epics asked for under this initiative (issue #431) that are not under it yet: pending ones and the ones Jira refused last time. */ epicRequests?: EpicRequest[]; /** What the preview says about the documents (sent, skipped, too long). */ documentsNote?: string; /** Files that have no share link and so are not in the description. */ unsharedFiles?: number; projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
 
-export const COLS = ["id", "item_code", ...Object.values(ITEM_COLUMNS), "home_project_id"].filter((c, i, a) => a.indexOf(c) === i).join(", ");
+export const COLS = ["id", "item_code", ...Object.values(ITEM_COLUMNS), "home_project_id", "owner_user_id"].filter((c, i, a) => a.indexOf(c) === i).join(", ");
 /** A row as read with COLS, with the allowlisted values under their field keys. */
 const asItemRow = (row: Record<string, unknown>): ItemRow => { const out: Record<string, unknown> = { ...row }; for (const [k, col] of Object.entries(ITEM_COLUMNS)) out[k] = row[col]; return out as ItemRow; };
 export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
@@ -93,6 +94,9 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   // the tags, only read (they leave as labels when the project switches that on)
   const { data: tagRows } = await ctx.supabase.from("item_tags").select("value").eq("tenant_id", ctx.tenantId).eq("item_id", id).eq("kind", "tag");
   const itemRow = asItemRow(item as Record<string, unknown>);
+  // the Product Manager as the assignee, for a create only (issue 733): the email is read here for the one lookup in evaluate and is never shown
+  const ownerId = (item as { owner_user_id?: string | null }).owner_user_id;
+  const pm = l ? undefined : ownerId ? { email: await productManagerEmail(ctx.tenantId, ownerId), none: false } : { email: null, none: true };
   itemRow.tags = ((tagRows ?? []) as { value: string }[]).map((r) => r.value);
   // the links of the initiative and the share links of its files (a file without a share link is not sent); read apart, so a database without them sends none
   const { data: linkRows } = await ctx.supabase.from("item_attachments").select("name, url").eq("tenant_id", ctx.tenantId).eq("item_id", id).eq("kind", "link").eq("shared", true).order("created_at");
@@ -112,7 +116,7 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   // the epics asked for under this initiative, read apart (migration jira_epic_requests): without the table none are offered
   const { data: epicRows, error: epicErr } = await ctx.supabase.from("item_jira_epic_requests").select("epic_key, state, last_error").eq("tenant_id", ctx.tenantId).eq("item_id", id).in("state", ["pending", "failed"]).order("epic_key");
   const epicRequests: EpicRequest[] = epicErr ? [] : ((epicRows ?? []) as { epic_key: string; state: "pending" | "failed"; last_error: string | null }[]).map((r) => ({ key: r.epic_key, state: r.state, lastError: r.last_error }));
-  return { ...(epicRequests.length ? { epicRequests } : {}), ...(artifacts.length ? { artifacts } : {}), ...(files.length ? { files } : {}), ...(documents.length ? { documents } : {}), ...(documentsNote ? { documentsNote } : {}), ...(unsharedFiles ? { unsharedFiles } : {}), ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), ...(readyPending ? { readyPending } : {}), item: itemRow, link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
+  return { ...(pm ? { pm } : {}), ...(epicRequests.length ? { epicRequests } : {}), ...(artifacts.length ? { artifacts } : {}), ...(files.length ? { files } : {}), ...(documents.length ? { documents } : {}), ...(documentsNote ? { documentsNote } : {}), ...(unsharedFiles ? { unsharedFiles } : {}), ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), ...(readyPending ? { readyPending } : {}), item: itemRow, link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
 }
 
 export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, code: i.item_code, health: (i as { health?: string | null }).health ?? null, initiative_status: (i as { initiative_status?: string | null }).initiative_status ?? null, initiative_phase: i.initiative_phase ?? null, name: i.initiative_name, summary: i.summary, focus_area: i.focus_area, value_type: i.value_type, g2m_quarter: i.g2m_quarter, tags: i.tags, description: i.description, hypothesis: i.hypothesis, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
@@ -242,6 +246,7 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   const checked = await dropMissingFields(req, effectiveJiraMap(parseFieldMap(l.plink?.field_map), parseConfigRows(l.plink?.config, "jira")), { cacheKey: `${l.conn.id}|${l.link?.site_id ?? l.plink!.site_id}` });
   const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, selectPicks, selectsNow: Object.fromEntries(Object.entries(selects).map(([slot, c]) => [slot, issue?.custom[c!.field] ?? null])), map: { ...checked.map, ...(Object.keys(selects).length > 0 ? { selects } : {}) }, ...(l.artifacts ? { artifacts: l.artifacts } : {}), ...(l.documents ? { documents: l.documents } : {}), ...(l.files ? { files: l.files } : {}), ...(l.projectName ? { projectName: l.projectName } : {}), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
   plan.notes.push(...checked.notes);
+  if (plan.action === "create" && l.pm) await addAssignee(plan, req, l.pm);
   if (l.documentsNote) plan.notes.push(l.documentsNote);
   if (l.unsharedFiles && !checked.map.off?.includes("jira.body.files")) plan.notes.push(`${l.unsharedFiles === 1 ? "1 attached file has" : `${l.unsharedFiles} attached files have`} no share link, so ${l.unsharedFiles === 1 ? "it is" : "they are"} not in the description. Share it on the item's Spec tab to include it.`);
   const conflicts: SyncConflict[] = [];
