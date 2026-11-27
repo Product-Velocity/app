@@ -6,7 +6,7 @@ const open = async (page: Page, scenario: string) => {
   await page.getByRole("button", { name: "Open sync" }).click();
   await expect(page.getByRole("button", { name: "Apply and send" })).toBeEnabled();
 };
-const dialog = (page: Page) => page.getByRole("dialog", { name: /Sync with GitHub|Synced with GitHub/ });
+const dialog = (page: Page) => page.getByRole("dialog", { name: /Sync with delivery platforms|Synced with delivery platforms/ });
 
 test.describe("Sync with GitHub: writing progress", () => {
   test("shows Writing x/y and each result as it is written, then Close", async ({ page }) => {
@@ -18,7 +18,7 @@ test.describe("Sync with GitHub: writing progress", () => {
       new MutationObserver(() => { for (const el of document.querySelectorAll('[role="status"]')) { const m = /Writing \d\/\d/.exec(el.textContent ?? ""); if (m) seen.add(m[0]); } }).observe(document.body, { subtree: true, childList: true, characterData: true });
     });
     await page.getByRole("button", { name: "Apply and send" }).click();
-    await expect(dialog(page).getByRole("heading", { name: "Synced with GitHub" })).toBeVisible();
+    await expect(dialog(page).getByRole("heading", { name: "Synced with delivery platforms" })).toBeVisible();
     expect(await page.evaluate(() => [...(window as unknown as { __seen: Set<string> }).__seen])).toEqual(["Writing 0/3", "Writing 1/3", "Writing 2/3"]); // after the last one the list of results takes over
     await expect(dialog(page).getByRole("list", { name: "Results" }).getByRole("listitem")).toHaveCount(3);
     await expect(dialog(page).getByText("Updated")).toHaveCount(3);
@@ -28,7 +28,7 @@ test.describe("Sync with GitHub: writing progress", () => {
   test("a failed initiative is reported on its own and sent again with Try again; the others are untouched", async ({ page }) => {
     await open(page, "fail");
     await page.getByRole("button", { name: "Apply and send" }).click();
-    await expect(dialog(page).getByRole("heading", { name: "Synced with GitHub" })).toBeVisible();
+    await expect(dialog(page).getByRole("heading", { name: "Synced with delivery platforms" })).toBeVisible();
     await expect(dialog(page).getByText("Updated")).toHaveCount(2);
     await expect(dialog(page).getByText("GitHub refused the update")).toBeVisible();
     await dialog(page).getByRole("button", { name: "Try again" }).click();
@@ -44,14 +44,14 @@ test.describe("Sync with GitHub: writing progress", () => {
     await expect(dialog(page).getByRole("list", { name: "Updates going out" }).getByRole("listitem")).toHaveCount(2); // R-2 and R-3 are still open; R-1 is written
     await expect(page.getByTestId("calls")).toHaveText(/^R-1,R-2$/);
     await page.getByRole("button", { name: "Apply and send" }).click();
-    await expect(dialog(page).getByRole("heading", { name: "Synced with GitHub" })).toBeVisible();
+    await expect(dialog(page).getByRole("heading", { name: "Synced with delivery platforms" })).toBeVisible();
     await expect(dialog(page).getByText("Updated")).toHaveCount(3);
   });
 
   test("when the connection is lost the rest are reported as not sent", async ({ page }) => {
     await open(page, "lost");
     await page.getByRole("button", { name: "Apply and send" }).click();
-    await expect(dialog(page).getByRole("heading", { name: "Synced with GitHub" })).toBeVisible();
+    await expect(dialog(page).getByRole("heading", { name: "Synced with delivery platforms" })).toBeVisible();
     await expect(dialog(page).getByText("Not sent: the connection was lost")).toBeVisible();
     await expect(dialog(page).getByText("Updated")).toHaveCount(1);
   });
@@ -65,7 +65,7 @@ test.describe("Sync with GitHub: new issues first", () => {
 
   test("with new issues the sync opens on them; pulling one in with ownership, then Continue, leads to the usual preview", async ({ page }) => {
     await openNew(page, "1");
-    const dlg = page.getByRole("dialog", { name: "Sync with GitHub: new issues first" });
+    const dlg = page.getByRole("dialog", { name: "Sync with delivery platforms: new issues first" });
     await expect(dlg.getByText(/8 issues that are not an initiative yet/)).toBeVisible();
     await expect(dlg.getByRole("heading", { name: "New issues in GitHub" })).toBeVisible();
     await expect(dlg.getByRole("heading", { name: "Incoming", exact: true })).toHaveCount(0); // no page heading inside the window
@@ -74,46 +74,46 @@ test.describe("Sync with GitHub: new issues first", () => {
     await dlg.getByRole("button", { name: /^Pull in 1/ }).click();
     await expect(dlg.getByRole("status").filter({ hasText: "Pulled 1 issue" })).toContainText("nothing was written to GitHub");
     await dlg.getByRole("button", { name: "Continue to sync" }).click();
-    await expect(page.getByRole("dialog", { name: "Sync with GitHub" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Sync with delivery platforms" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Apply and send" })).toBeEnabled(); // the check ran underneath, so the preview is ready
   });
 
   test("accessibility: the new issues step has no WCAG A/AA violations", async ({ page }) => {
     await openNew(page, "1");
-    await expect(page.getByRole("dialog", { name: "Sync with GitHub: new issues first" }).getByRole("heading", { name: "New issues in GitHub" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Sync with delivery platforms: new issues first" }).getByRole("heading", { name: "New issues in GitHub" })).toBeVisible();
     const results = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} (${v.help})`)).toEqual([]);
   });
 
   test("with nothing new it goes straight to the preview", async ({ page }) => {
     await openNew(page, "0");
-    await expect(page.getByRole("dialog", { name: "Sync with GitHub" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Sync with delivery platforms" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Apply and send" })).toBeEnabled();
-    await expect(page.getByRole("dialog", { name: "Sync with GitHub: new issues first" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Sync with delivery platforms: new issues first" })).toHaveCount(0);
   });
 
   test("GitHub is read first, once, so the list is current; the step shows after that", async ({ page }) => {
     await openNew(page, "1");
-    await expect(page.getByRole("dialog", { name: "Sync with GitHub: new issues first" }).getByText(/8 issues that are not an initiative yet/)).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Sync with delivery platforms: new issues first" }).getByText(/8 issues that are not an initiative yet/)).toBeVisible();
     await expect(page.getByTestId("refreshes")).toHaveText("1");
   });
 
   test("when GitHub cannot be read the step still shows what it has", async ({ page }) => {
     await openNew(page, "err");
-    await expect(page.getByRole("dialog", { name: "Sync with GitHub: new issues first" }).getByText(/8 issues that are not an initiative yet/)).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Sync with delivery platforms: new issues first" }).getByText(/8 issues that are not an initiative yet/)).toBeVisible();
     await expect(page.getByTestId("refreshes")).toHaveText("1");
   });
 
   test("when GitHub does not answer the step stops waiting after a few seconds", async ({ page }) => {
     await openNew(page, "hang");
-    const dlg = page.getByRole("dialog", { name: "Sync with GitHub: new issues first" });
+    const dlg = page.getByRole("dialog", { name: "Sync with delivery platforms: new issues first" });
     await expect(dlg.getByRole("status")).toContainText("Checking GitHub for new issues");
     await expect(dlg.getByText(/8 issues that are not an initiative yet/)).toBeVisible({ timeout: 15_000 });
   });
 
   test("Cancel leaves the step without writing anything; the layout is the list, then what to do, then the rules", async ({ page }) => {
     await openNew(page, "1");
-    const dlg = page.getByRole("dialog", { name: "Sync with GitHub: new issues first" });
+    const dlg = page.getByRole("dialog", { name: "Sync with delivery platforms: new issues first" });
     await expect(dlg.getByRole("heading", { name: "What to do with the selected issues" })).toBeVisible();
     await expect(dlg.getByRole("button", { name: "Cancel" })).toBeVisible();
     await expect(dlg.getByRole("button", { name: "Continue to sync" })).toBeVisible();
@@ -124,7 +124,7 @@ test.describe("Sync with GitHub: new issues first", () => {
 
   test("the step can be left with Escape, and nothing is written", async ({ page }) => {
     await openNew(page, "1");
-    await expect(page.getByRole("dialog", { name: "Sync with GitHub: new issues first" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Sync with delivery platforms: new issues first" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByTestId("calls")).toHaveText("");
@@ -132,7 +132,7 @@ test.describe("Sync with GitHub: new issues first", () => {
 
   test("for a Jira project the step is Jira's: keys, the Jira project filter, no rules, each issue into its own linked project", async ({ page }) => {
     await openNew(page, "jira");
-    const dlg = page.getByRole("dialog", { name: "Sync with Jira: new issues first" });
+    const dlg = page.getByRole("dialog", { name: "Sync with delivery platforms: new issues first" });
     await expect(dlg.getByText(/Jira has 3 issues that are not an initiative yet/)).toBeVisible();
     await expect(dlg.getByText("Nothing is written to Jira in this step.")).toBeVisible();
     await expect(dlg.getByRole("heading", { name: "New issues in Jira" })).toBeVisible();
@@ -146,12 +146,12 @@ test.describe("Sync with GitHub: new issues first", () => {
     await dlg.getByRole("button", { name: /^Pull in 1/ }).click();
     await expect(dlg.getByRole("status").filter({ hasText: "Pulled 1 issue into the projects linked to their Jira projects" })).toBeVisible();
     await dlg.getByRole("button", { name: "Continue to sync" }).click();
-    await expect(page.getByRole("dialog", { name: "Sync with Jira" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Sync with delivery platforms" })).toBeVisible();
   });
 
   test("accessibility: the Jira step has no WCAG A/AA violations", async ({ page }) => {
     await openNew(page, "jira");
-    await expect(page.getByRole("dialog", { name: "Sync with Jira: new issues first" }).getByRole("heading", { name: "New issues in Jira" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Sync with delivery platforms: new issues first" }).getByRole("heading", { name: "New issues in Jira" })).toBeVisible();
     const results = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} (${v.help})`)).toEqual([]);
   });
@@ -162,7 +162,7 @@ test.describe("Sync dialog: Cancel on the first screen", () => {
     await page.goto("/dev/sync?scenario=slow");
     await page.getByRole("button", { name: "Open sync" }).click();
     await expect(dialog(page).getByText(/Checking GitHub/)).toBeVisible();
-    await expect(dialog(page).getByRole("listitem").filter({ hasText: /^1\. Incoming from GitHub/ })).toHaveAttribute("aria-current", "step");
+    await expect(dialog(page).getByRole("listitem").filter({ hasText: /^1\. Incoming changes/ })).toHaveAttribute("aria-current", "step");
     await dialog(page).getByRole("button", { name: "Cancel" }).click();
     await expect(dialog(page)).toHaveCount(0);
     await expect(page.getByTestId("calls")).toHaveText("");

@@ -7,7 +7,7 @@ test.describe("Sync: Ready for build", () => {
   test("GitHub: the preview says Set Status to Ready, a board without Ready says add it, and the result lists the Status write", async ({ page }) => {
     await page.goto("/dev/sync?scenario=githubready");
     await page.getByRole("button", { name: "Open sync" }).click();
-    const dialog = page.getByRole("dialog", { name: /Sync(ed)? with GitHub/ });
+    const dialog = page.getByRole("dialog", { name: /Sync(ed)? with delivery platforms/ });
     const list = dialog.getByRole("list", { name: "Updates going out" });
     const r1 = list.getByRole("listitem").filter({ hasText: "R-1" });
     await expect(r1.getByText("Ready for build:")).toBeVisible();
@@ -26,7 +26,7 @@ test.describe("Sync: Ready for build", () => {
   test("Jira: the preview says Move to To do, and the result lists the Status write", async ({ page }) => {
     await page.goto("/dev/sync?scenario=jiraready&new=jira0");
     await page.getByRole("button", { name: "Open sync" }).click();
-    const dialog = page.getByRole("dialog", { name: /Sync(ed)? with Jira/ });
+    const dialog = page.getByRole("dialog", { name: /Sync(ed)? with delivery platforms/ });
     await dialog.getByRole("radio", { name: "Keep Product Velocity" }).check(); // the description conflict of the shared Jira scenario
     await dialog.getByRole("button", { name: /^Next: what goes to Jira/ }).click();
     const r2 = dialog.getByRole("list", { name: "Updates going out" }).getByRole("listitem").filter({ hasText: "R-2" });

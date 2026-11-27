@@ -6,7 +6,7 @@ test.describe("Sync with GitHub: Removed in Product Velocity", () => {
   test("nothing is written before the button; the words say close as not planned; an adopted issue warns in red and is not ticked; a refusal is shown with Try again", async ({ page }) => {
     await page.goto("/dev/sync?scenario=githubremoved");
     await page.getByRole("button", { name: "Open sync" }).click();
-    const dialog = page.getByRole("dialog", { name: /Sync(ed)? with GitHub/ });
+    const dialog = page.getByRole("dialog", { name: /Sync(ed)? with delivery platforms/ });
     const removed = dialog.getByRole("region", { name: "Removed in Product Velocity" });
     await expect(removed).toBeVisible();
     await expect(removed.getByText(/closes it as “not planned” in GitHub/)).toBeVisible();
@@ -59,7 +59,7 @@ test.describe("Sync with GitHub: Removed in Product Velocity", () => {
   test("an initiative stopped at a gate is offered with the gate and closes the same way (issue #343)", async ({ page }) => {
     await page.goto("/dev/sync?scenario=githubstopped");
     await page.getByRole("button", { name: "Open sync" }).click();
-    const dialog = page.getByRole("dialog", { name: /Sync(ed)? with GitHub/ });
+    const dialog = page.getByRole("dialog", { name: /Sync(ed)? with delivery platforms/ });
     const removed = dialog.getByRole("region", { name: "Removed or stopped in Product Velocity" });
     await expect(removed).toBeVisible();
     await expect(removed.getByText("Stopped at gate B")).toBeVisible();
