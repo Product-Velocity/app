@@ -129,6 +129,13 @@ describe("jira_create_link", () => {
     await call("select public.jira_create_link($1, $2, $3, 'site-1', $4, '10042', 'https://x.atlassian.net/browse/' || $4, $5::jsonb, $6)", [creator, id, connA, `${key}-7`, JSON.stringify({ title: H("1") }), S("4")]);
     expect(await link(id)).toMatchObject({ issue_key: `${key}-7`, mode: "push", created_by: creator, created_via: "UI", issue_id: "10042" });
   });
+  it("the light record of the new issue (made by a read) is Pulled with the initiative, never offered as new (issue 740)", async () => {
+    const { item: id, key } = await setup(f.tenantA, connA, null);
+    const pl = (await db.admin.query("select project_id, site_id, jira_project_key from public.jira_project_links where tenant_id = $1 and connection_id = $2 limit 1", [f.tenantA, connA])).rows[0];
+    await db.admin.query("insert into public.jira_issues (tenant_id, connection_id, project_id, site_id, jira_project_key, issue_key, title, pull_state) values ($1, $2, $3, $4, $5, $6, 'Made by PV', 'not_pulled')", [f.tenantA, connA, pl.project_id, pl.site_id, pl.jira_project_key, `${key}-9`]);
+    await call("select public.jira_create_link($1, $2, $3, 'site-1', $4, '10043', 'https://x.atlassian.net/browse/' || $4, $5::jsonb, $6)", [creator, id, connA, `${key}-9`, JSON.stringify({ title: H("1") }), S("4")]);
+    expect((await db.admin.query("select pull_state, item_id from public.jira_issues where issue_key = $1", [`${key}-9`])).rows[0]).toEqual({ pull_state: "pulled", item_id: id });
+  });
   it("refuses a key of another Jira project, another workspace's connection, a viewer and a service account", async () => {
     const { item: id, key } = await setup(f.tenantA, connA, null);
     const args = (who: string, k: string, conn = connA) => [who, id, conn, k];
