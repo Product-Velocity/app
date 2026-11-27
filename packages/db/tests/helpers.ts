@@ -292,6 +292,9 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
       if ((await db.admin.query("select to_regclass('public.jira_select_map') as t")).rows[0].t) {
         await db.admin.query("insert into public.jira_select_map (tenant_id, project_id, slot, field_id, direction, options) values ($1, $2, 'jira.select.health', 'customfield_10100', 'to_jira', '{\"On Track\":\"201\"}')", [tenantId, project]);
       }
+      if ((await db.admin.query("select to_regclass('public.jira_status_sync') as t")).rows[0].t) {
+        await db.admin.query("insert into public.jira_status_sync (tenant_id, project_id, statuses) values ($1, $2, '{\"Active\":\"10001\"}')", [tenantId, project]);
+      }
       if ((await db.admin.query("select to_regclass('public.tracker_field_config') as t")).rows[0].t) {
         await db.admin.query("insert into public.tracker_field_config (tenant_id, project_id, provider, slot, enabled) values ($1, $2, 'jira', 'jira.label.moscow', false)", [tenantId, project]);
       }

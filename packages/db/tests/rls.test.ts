@@ -205,6 +205,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_status_sync",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_status_sync set statuses = '{\"Active\":\"1\"}' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_status_sync where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_status_sync (tenant_id, project_id, statuses) select tenant_id, project_id, '{\"Active\":\"1\"}' from public.jira_select_map where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_status_sync set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_webhooks",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

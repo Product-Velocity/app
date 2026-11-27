@@ -5,10 +5,12 @@ import { webhooksEnabled } from "@/lib/atlassian/jira-webhooks-server";
 import { jiraConfigured, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
 import { parseFieldMap } from "@/lib/atlassian/field-map";
 import { proposeTypeMapping } from "@/lib/atlassian/type-mapping";
-import { readJiraCatalog, readJiraSelectFields, readJiraSiteFields, type JiraSiteFields } from "@/lib/atlassian/catalog-server";
+import { readJiraCatalog, readJiraProjectStatuses, readJiraSelectFields, readJiraSiteFields, type JiraSiteFields } from "@/lib/atlassian/catalog-server";
 import { countLinkedInitiatives } from "@/lib/atlassian/linked-counts";
 import { countWithValues, readStamp } from "@/lib/select-editor/counts";
 import { InitiativeSelectCard } from "@/components/initiative-select-card";
+import { InitiativeStatusSyncCard } from "@/components/initiative-status-sync-card";
+import { parseStatusMap } from "@/lib/atlassian/jira-status-map";
 import { parseSelectMap, selectRowsToMap } from "@/lib/atlassian/select-map";
 import { buildMappingView, type MappingView } from "@/lib/tracker-fields/view";
 import { parseConfigRows } from "@/lib/tracker-fields/mapping";
@@ -17,7 +19,7 @@ import type { TrackerSection } from "@/lib/tracker-fields/sections";
 import { requireWorkspace } from "@/lib/session";
 import { canEditItems } from "@pv/domain";
 import { EpicProjectsCard, type EpicProjectSite } from "./epic-projects-card";
-import { checkJiraNow, copyJiraFieldConfig, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldConfig, saveJiraSelectMap, saveJiraProject, startJiraConnection } from "./actions";
+import { checkJiraNow, copyJiraFieldConfig, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldConfig, saveJiraSelectMap, saveJiraStatusSync, saveJiraProject, startJiraConnection } from "./actions";
 
 const MAPPING_PATH = "/settings/integrations/jira/mapping";
 
@@ -157,6 +159,17 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
     const selCounts = await countWithValues(supabase, active.tenantId, selected.project_id, "item_jira_links");
     selectCard = <InitiativeSelectCard projectId={selected.project_id} projectName={((projectRows ?? []) as { id: string; name: string }[]).find((p) => p.id === selected.project_id)?.name ?? "this project"} saved={parseSelectMap(selectRowsToMap(selRows))} fields={selFields} action={saveJiraSelectMap} fieldsError={selError} counts={selCounts} readAt={readStamp()} readHref={`${MAPPING_PATH}?project=${encodeURIComponent(selected.project_id)}`} />;
   }
+  // "Initiative Status in Jira" (issue 738): the option that sets the Jira workflow status from the Initiative Status; off unless a row exists
+  let statusCard: React.ReactNode = null;
+  if (canAdmin && onMapping && selected) {
+    const { data: ssRow } = await supabase.from("jira_status_sync").select("statuses").eq("tenant_id", active.tenantId).eq("project_id", selected.project_id).maybeSingle();
+    const savedStatuses = ssRow ? parseStatusMap((ssRow as { statuses?: unknown }).statuses) : null;
+    const st = await readJiraProjectStatuses(selected.connection_id, selected.site_id, selected.jira_project_key, selected.initiative_type_id).then(
+      (options) => ({ options, error: options.length === 0 ? "Jira lists no statuses for this project's initiative issue type. Check the initiative type on the Projects page, then read again." : null as string | null }),
+      (e: unknown) => ({ options: null, error: e instanceof Error && /reconnect|sign/i.test(e.message) ? "Jira needs a new sign-in. A workspace admin can sign in again on Connect and configure." : "Jira could not be read just now (it refused the request or could not be reached). Reload in a minute." }),
+    );
+    statusCard = <InitiativeStatusSyncCard projectId={selected.project_id} projectName={((projectRows ?? []) as { id: string; name: string }[]).find((p) => p.id === selected.project_id)?.name ?? "this project"} saved={savedStatuses} options={st.options} error={st.error} action={saveJiraStatusSync} />;
+  }
   const catalogs: TrackerCatalog[] = canAdmin && onMapping && selected
     ? [await readJiraCatalog(selected.connection_id, selected.site_id, selected.jira_project_key).catch((): null => null)].filter((c): c is TrackerCatalog => c !== null)
     : [];
@@ -238,7 +251,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
       connections={connections} canAdmin={canAdmin} configured={configured} status={status} why={why} checked={checkedN ? { c: checkedN, ch: changedN ?? "0", m: missingN ?? "0" } : undefined}
       connectAction={startJiraConnection} disconnectAction={disconnectJira} projectLinks={projectLinks} choices={choices} sync={sync} saveProjectAction={saveJiraProject} readAction={readJiraNow}
       checkAction={checkJiraNow} section={section} catalogs={catalogs} retryAction={retryJiraEvent} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldConfigAction={saveJiraFieldConfig}
-      header={header} selectedProject={selected?.project_id} copyAction={copyJiraFieldConfig} version={t} mappingExtra={selectCard}
+      header={header} selectedProject={selected?.project_id} copyAction={copyJiraFieldConfig} version={t} mappingExtra={<>{selectCard}{statusCard}</>}
       projectsExtra={<EpicProjectsCard sites={epicSites} status={status} saved={epicSites.some((e) => e.ticked.length > 0)} />}
     />
   );

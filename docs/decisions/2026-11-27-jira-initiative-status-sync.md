@@ -1,0 +1,18 @@
+---
+date: 2026-11-27
+by: Ashu (chat, 2026-11-27: "agree with the recommendation"), written by Claude
+request: 738
+status: built, to confirm
+---
+**Product Velocity may set the Jira workflow status of an initiative's issue from the Initiative Status, as a per-project option that is off by default (issue #738). CLAUDE.md rule 6 is amended.**
+
+- **Why.** Ashu is aligning the Jira workflow statuses of the Initiative issue type by hand with Product Velocity's Initiative Status (Backlog, Active, On hold, Completed, Cancelled) and wants the option to keep them in step. This is the Initiative Status dimension, not Build Status, which keeps following the epics, stories and tasks.
+- **Precedent.** Product Velocity already writes a status in two narrow cases, both explicit, confirmed and per initiative: it closes the Jira issue of a removed initiative (`2026-11-03-jira-close-removed.md`) and moves a new issue to To do at Ready for build (`2026-11-06-ready-at-gate-b.md`). This is the third.
+- **What it does.** Per Jira project (Settings, Integrations, Jira, Field mapping, card Initiative Status in Jira) an admin switches it on and maps each Initiative Status to a Jira status of the project's initiative issue type (read from Jira; a same-name status is suggested, Completed also matches Done, Cancelled also Canceled). A value with no mapped status leaves Jira alone. At Sync with Jira the preview shows, per initiative, "Move the status from X to Y"; after a person confirms, the issue is moved with the workflow's own transition. For a new issue the status is set after it is created.
+- **Direction (agreed): one way.** Nothing comes back from Jira. A status changed in Jira is put back to the mapped one at the next confirmed Sync while the option is on (Product Velocity is the source); switch the option off to stop that.
+- **Completed and Cancelled (agreed):** map them to Done-category statuses; that closes the issue. The transition is the workflow's; if Jira needs a resolution on that transition it refuses and Sync shows Jira's own words.
+- **Safety.** The transition id is always taken from a fresh read of the issue's transitions and must lead to exactly the mapped status; none means a note and no write. Read again at the confirmed send, so a status that moved since the preview is judged on what Jira says now. Only the issue that is the initiative is touched; never an epic, story or task, never Build Status or the build dates; no status is created and no workflow edited (a Jira admin does that). The code is two modules: `jira-status-map.ts` (the mapping, free to use anywhere) and `jira-status-sync.ts` (the transition, imported by the send engine only; `transition-guard.test.ts` enforces it and that only three modules build a transitions request).
+- **Together with the custom field (agreed).** It may be combined with the Initiative fields card (Health, Initiative Status and Initiative Phase on custom select fields): separate settings, separate tables, no conflict.
+- **Order.** After the send and after Ready for build's move to To do, so a late-stage initiative ends in the status you mapped.
+- **Who.** Setting it is a workspace admin's action (never Claude, a service account or staff: the database refuses it, `jira_set_status_sync`). The move uses the Jira connection like every other write, and the result is on the confirmed Sync screen ("Status: WIP Research") and in Jira's own history.
+- **Not built.** Two-way (a status change in Jira as a suggestion), a GitHub twin (closing the issue for Completed and Cancelled), counting initiatives that the option would move when it is switched on (the preview shows them one by one).

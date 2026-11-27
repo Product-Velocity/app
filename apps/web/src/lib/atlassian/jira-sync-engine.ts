@@ -18,6 +18,8 @@ import { parseFieldMap } from "./field-map";
 import { documentLinks, documentsPreviewNote, isClaudeStoredLink } from "@pv/domain";
 import { wroteJira } from "@/lib/sync-wrote";
 import { addAssignee, productManagerEmail } from "./jira-assignee";
+import { parseStatusMap, type StatusMap } from "./jira-status-map";
+import { planStatusSync, writeStatusSync } from "./jira-status-sync";
 import { documentUrl, shareUrl } from "@/lib/files/serve";
 import type { Link } from "./jira-sections";
 import { dropMissingFields } from "./mapped-fields";
@@ -41,7 +43,7 @@ type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_
 type ProjectLink = { /** The project is read only for Jira (issue #656): nothing is ever written to Jira for it. */ read_only?: boolean; selectRows?: unknown; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown; /** Rows of tracker_field_config (the field configuration), as stored. */ config?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
-export type Loaded = { /** A create only: the Product Manager as the assignee (issue 733): the email to match in Jira (read here, never shown), or that the initiative has none. */ pm?: { email: string | null; none: boolean }; /** Ready for build (issue #358): Gate B passed (ready_for_build_at set, phase Build) and the Jira move to To do was not handled yet. */ readyPending?: boolean; /** Artifact links and share links of files, for the Artifacts and Files sections. */ artifacts?: Link[]; files?: Link[]; /** The documents left shared, each as a name and a public link (the Documents section). */ documents?: Link[]; /** Epics asked for under this initiative (issue #431) that are not under it yet: pending ones and the ones Jira refused last time. */ epicRequests?: EpicRequest[]; /** What the preview says about the documents (sent, skipped, too long). */ documentsNote?: string; /** Files that have no share link and so are not in the description. */ unsharedFiles?: number; projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
+export type Loaded = { /** Initiative Status to the Jira workflow status (issue 738): the project's mapping when the option is on (a row exists), else none. */ statusMap?: StatusMap; /** A create only: the Product Manager as the assignee (issue 733): the email to match in Jira (read here, never shown), or that the initiative has none. */ pm?: { email: string | null; none: boolean }; /** Ready for build (issue #358): Gate B passed (ready_for_build_at set, phase Build) and the Jira move to To do was not handled yet. */ readyPending?: boolean; /** Artifact links and share links of files, for the Artifacts and Files sections. */ artifacts?: Link[]; files?: Link[]; /** The documents left shared, each as a name and a public link (the Documents section). */ documents?: Link[]; /** Epics asked for under this initiative (issue #431) that are not under it yet: pending ones and the ones Jira refused last time. */ epicRequests?: EpicRequest[]; /** What the preview says about the documents (sent, skipped, too long). */ documentsNote?: string; /** Files that have no share link and so are not in the description. */ unsharedFiles?: number; projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
 
 export const COLS = ["id", "item_code", ...Object.values(ITEM_COLUMNS), "home_project_id", "owner_user_id"].filter((c, i, a) => a.indexOf(c) === i).join(", ");
 /** A row as read with COLS, with the allowlisted values under their field keys. */
@@ -89,6 +91,13 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   const { data: conn } = connId ? await ctx.supabase.from("jira_connections").select("id, sites, state").eq("tenant_id", ctx.tenantId).eq("id", connId).maybeSingle() : { data: null };
   const c = (conn ?? null) as Conn | null;
   const siteId = l?.site_id ?? plink?.site_id;
+  // Initiative Status to the Jira workflow status (issue 738): on only while the project has a row; read apart, so a database without the table sends nothing
+  let statusMap: StatusMap | undefined;
+  if (plink) {
+    const { data: ss } = await ctx.supabase.from("jira_status_sync").select("statuses").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).maybeSingle();
+    const parsed = parseStatusMap((ss as { statuses?: unknown } | null)?.statuses);
+    if (ss && Object.keys(parsed).length > 0) statusMap = parsed;
+  }
   const { data: proj } = item.home_project_id ? await ctx.supabase.from("projects").select("name").eq("tenant_id", ctx.tenantId).eq("id", item.home_project_id).maybeSingle() : { data: null };
   const projectName = (proj as { name?: string } | null)?.name;
   // the tags, only read (they leave as labels when the project switches that on)
@@ -116,7 +125,7 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   // the epics asked for under this initiative, read apart (migration jira_epic_requests): without the table none are offered
   const { data: epicRows, error: epicErr } = await ctx.supabase.from("item_jira_epic_requests").select("epic_key, state, last_error").eq("tenant_id", ctx.tenantId).eq("item_id", id).in("state", ["pending", "failed"]).order("epic_key");
   const epicRequests: EpicRequest[] = epicErr ? [] : ((epicRows ?? []) as { epic_key: string; state: "pending" | "failed"; last_error: string | null }[]).map((r) => ({ key: r.epic_key, state: r.state, lastError: r.last_error }));
-  return { ...(pm ? { pm } : {}), ...(epicRequests.length ? { epicRequests } : {}), ...(artifacts.length ? { artifacts } : {}), ...(files.length ? { files } : {}), ...(documents.length ? { documents } : {}), ...(documentsNote ? { documentsNote } : {}), ...(unsharedFiles ? { unsharedFiles } : {}), ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), ...(readyPending ? { readyPending } : {}), item: itemRow, link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
+  return { ...(statusMap ? { statusMap } : {}), ...(pm ? { pm } : {}), ...(epicRequests.length ? { epicRequests } : {}), ...(artifacts.length ? { artifacts } : {}), ...(files.length ? { files } : {}), ...(documents.length ? { documents } : {}), ...(documentsNote ? { documentsNote } : {}), ...(unsharedFiles ? { unsharedFiles } : {}), ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), ...(readyPending ? { readyPending } : {}), item: itemRow, link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
 }
 
 export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, code: i.item_code, health: (i as { health?: string | null }).health ?? null, initiative_status: (i as { initiative_status?: string | null }).initiative_status ?? null, initiative_phase: i.initiative_phase ?? null, name: i.initiative_name, summary: i.summary, focus_area: i.focus_area, value_type: i.value_type, g2m_quarter: i.g2m_quarter, tags: i.tags, description: i.description, hypothesis: i.hypothesis, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
@@ -218,7 +227,7 @@ export type Evaluated =
   | { kind: "no_project" }
   | { kind: "discover" }
   | { kind: "frozen" }
-  | { kind: "ok"; ready?: JiraReadyPlan; readyNote?: string; epics?: EpicPlanLine[]; plan: SendPlan; conflicts: SyncConflict[]; jiraHashes: Partial<Record<TextField, string>>; selectHashes: Partial<Record<SelectKey, string>>; card: Pick<PlanItem, "ready" | "id" | "tracker" | "code" | "name" | "project" | "repo" | "action" | "title" | "labels" | "block" | "issueNumber" | "issueUrl" | "issueLabel" | "notes" | "epics"> };
+  | { kind: "ok"; /** Initiative Status sync (issue 738): the Jira status id to move to when the confirmed send runs. */ statusTarget?: string; ready?: JiraReadyPlan; readyNote?: string; epics?: EpicPlanLine[]; plan: SendPlan; conflicts: SyncConflict[]; jiraHashes: Partial<Record<TextField, string>>; selectHashes: Partial<Record<SelectKey, string>>; card: Pick<PlanItem, "ready" | "statusSync" | "id" | "tracker" | "code" | "name" | "project" | "repo" | "action" | "title" | "labels" | "block" | "issueNumber" | "issueUrl" | "issueLabel" | "notes" | "epics"> };
 
 /** Reads the issue (if there is one) and decides, given the choices made so far, what would go out. */
 export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" | "jira">>, call?: JiraRequest, selectPicks: Partial<Record<SelectKey, "pv" | "jira">> = {}): Promise<Evaluated> {
@@ -288,14 +297,30 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   }
   const epicsView = epics?.length ? { epics: epics.map((x) => ({ key: x.key, text: x.text, will: x.will })) } : {};
   const url = l.link ? (l.link.html_url ?? (l.siteUrl ? `${l.siteUrl}/browse/${l.link.issue_key}` : null)) : null;
+  // Initiative Status to the Jira workflow status (issue 738): read only here; the move itself happens after the confirmed send (writeOne)
+  let statusSync: { text: string; will: boolean } | undefined;
+  let statusTarget: string | undefined;
+  const pvStatus = (l.item as { initiative_status?: string | null }).initiative_status ?? null;
+  if (l.statusMap && pvStatus) {
+    const target = (l.statusMap as Record<string, string | undefined>)[pvStatus];
+    if (!target) statusSync = { text: `Initiative Status ${pvStatus} is not mapped to a Jira status, so the Jira status is left as it is.`, will: false };
+    else if (!l.link) { statusSync = { text: `After the issue is created, its status is set from Initiative Status ${pvStatus} (to the status you mapped to it).`, will: true }; statusTarget = target; }
+    else {
+      try {
+        const r = await planStatusSync(req, l.link.issue_key, { id: target, name: "" });
+        if (r.ok) { if (r.plan.state === "set" || r.plan.state === "blocked") statusSync = { text: r.plan.text, will: r.plan.state === "set" }; if (r.plan.state === "set") statusTarget = target; } // already in that status: nothing to show
+        else statusSync = { text: r.message, will: false };
+      } catch (err) { if (err instanceof ReconnectNeeded) return { kind: "error", message: RECONNECT, reconnect: true }; statusSync = { text: "Jira could not be read just now, so its status is left as it is.", will: false }; }
+    }
+  }
   const readyView = ready && (ready.state === "set" || ready.state === "blocked") ? { ready: { text: ready.text, will: ready.state === "set" } } : readyNote ? { ready: { text: readyNote, will: false } } : {};
-  const card = { id: l.item.id, tracker: "jira" as const, code, name: l.item.initiative_name, project, repo: key, action: plan.action, title: String(plan.fields.summary ?? l.item.initiative_name), labels: (plan.fields.labels as string[] | undefined) ?? [], block: adfToText(plan.fields.description ?? markdownToAdf("")), issueNumber: null, issueUrl: url, ...(l.link ? { issueLabel: l.link.issue_key } : {}), ...(plan.notes.length ? { notes: plan.notes } : {}), ...readyView, ...epicsView };
-  return { kind: "ok", plan, conflicts, jiraHashes, selectHashes, card, ...(ready ? { ready } : {}), ...(epics ? { epics } : {}) };
+  const card = { id: l.item.id, tracker: "jira" as const, code, name: l.item.initiative_name, project, repo: key, action: plan.action, title: String(plan.fields.summary ?? l.item.initiative_name), labels: (plan.fields.labels as string[] | undefined) ?? [], block: adfToText(plan.fields.description ?? markdownToAdf("")), issueNumber: null, issueUrl: url, ...(l.link ? { issueLabel: l.link.issue_key } : {}), ...(plan.notes.length ? { notes: plan.notes } : {}), ...readyView, ...(statusSync ? { statusSync } : {}), ...epicsView };
+  return { kind: "ok", plan, conflicts, jiraHashes, selectHashes, card, ...(statusTarget ? { statusTarget } : {}), ...(ready ? { ready } : {}), ...(epics ? { epics } : {}) };
 }
 /** What the preview shows for the send half of one initiative. */
 export function previewParts(e: Evaluated): { conflicts: SyncConflict[]; plan?: PlanItem; create: boolean } {
   if (e.kind !== "ok") return { conflicts: [], create: false };
-  const plan: PlanItem | undefined = e.card.action === "unchanged" && e.conflicts.length === 0 && !e.card.issueLabel && !e.card.ready && !e.card.epics?.length ? undefined : e.card;
+  const plan: PlanItem | undefined = e.card.action === "unchanged" && e.conflicts.length === 0 && !e.card.issueLabel && !e.card.ready && !e.card.statusSync && !e.card.epics?.length ? undefined : e.card;
   return { conflicts: e.conflicts, ...(plan ? { plan } : {}), create: e.plan.action === "create" };
 }
 
@@ -423,8 +448,19 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
     const wrote = moved.length > 0 ? [...(w.result.wrote ?? []), `Parent of ${moved.join(", ")}`] : w.result.wrote;
     return { ...w, result: { ...w.result, outcome: w.result.outcome === "unchanged" && moved.length > 0 ? "updated" : w.result.outcome, ...(wrote ? { wrote } : {}), message: [w.result.message, said].filter(Boolean).join(" ") } };
   };
+  // Initiative Status to the Jira workflow status (issue 738): last, after the issue exists and Ready for build had its move; the status is read again first
+  const finishStatus = async (w: WriteResult): Promise<WriteResult> => {
+    if (!("result" in w) || !e.statusTarget || !["created", "updated", "unchanged"].includes(w.result.outcome)) return w;
+    const key = w.result.issueLabel ?? issueKey;
+    if (!key) return w;
+    const r = await writeStatusSync(call, key, { id: e.statusTarget, name: "" });
+    if (!r.ok) return { ...w, result: { ...w.result, message: [w.result.message, `Status not changed. ${r.message}`].filter(Boolean).join(" ") } };
+    if (r.result === "already") return w;
+    const wrote = [...(w.result.wrote ?? []), `Status: ${r.status}`];
+    return { ...w, result: { ...w.result, outcome: w.result.outcome === "unchanged" ? "updated" : w.result.outcome, wrote } };
+  };
   try {
-    return await finishReady(await finishEpics(await send()));
+    return await finishStatus(await finishReady(await finishEpics(await send())));
   } catch (err) {
     // a lost sign-in is shown as such and never retried; anything else is a plain failure of this initiative only
     return { result: { ...base, outcome: "error", message: err instanceof ReconnectNeeded ? RECONNECT : "Sending to Jira did not finish for this initiative. Check Jira before trying again: an issue may already exist, and sending again will find it." }, taken };

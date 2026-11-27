@@ -20,6 +20,8 @@ export type PlanItem = {
   board?: { title: string; included: boolean; writes: { field: string; value: string }[]; notes: string[]; /** Children (epics and tasks) that this send would also put on the board. */ children: number };
   /** Ready for build (issue #358): what the confirmed send does to the tracker's status. `will` is true only when something is written ("Set Status to Ready" / "Move to To do"); otherwise `text` says why nothing is. */
   ready?: { text: string; will: boolean };
+  /** Jira, issue 738: Initiative Status to the Jira workflow status. `will` is true only when the confirmed send moves the status; otherwise `text` says why nothing is. */
+  statusSync?: { text: string; will: boolean };
   /** Jira, issue #431: the epics this send puts under the initiative's Jira issue (an issue above Epic), one line each. `will` is true when the epic's parent is written. */
   epics?: { key: string; text: string; will: boolean }[];
   /** The managed block exactly as it will be written. */
