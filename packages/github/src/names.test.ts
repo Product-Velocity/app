@@ -9,12 +9,12 @@ import { MemorySourceControl } from "./memory-source";
 const ITEM = "0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a";
 const item = { item_code: "PV-1", initiative_name: "Checkout", summary: "S", description: "D", hypothesis: "H", moscow: "Must", stack_rank: 3, change_type: "Bug", theme: "Payments", value_type: "Defend revenue", g2m_quarter: "Q3 2027", initiative_phase: "Define" };
 const base = { item, itemId: ITEM, projectName: "Mobile App", appUrl: "https://app.example", artifacts: [] };
-const STEALTH = { prefix: { moscow: "moscow/", rank: "rank/", type: "type/", group: "group/", project: "project/", value: "value/", quarter: "quarter/" }, base: "", removed: "removed", define: "in-review", block: "sync", hideBrand: true };
+const STEALTH = { prefix: { moscow: "moscow/", rank: "rank/", type: "type/", group: "group/", project: "project/", value: "value/", quarter: "quarter/", phase: "phase/" }, base: "", removed: "removed", define: "in-review", block: "sync", hideBrand: true };
 
 describe("buildTrackingIssue under other names", () => {
   it("labels use the chosen text, no base label, and nothing says pv or Product Velocity", () => {
     const b = buildTrackingIssue({ ...base, names: STEALTH });
-    expect(b.labels).toEqual(["project/mobile-app", "moscow/must", "rank/top-10", "type/bug", "group/payments", "value/defend-revenue", "quarter/q3-2027", "in-review"]);
+    expect(b.labels).toEqual(["project/mobile-app", "moscow/must", "rank/top-10", "type/bug", "group/payments", "value/defend-revenue", "quarter/q3-2027", "phase/define", "in-review"]);
     expect(b.block).not.toMatch(/pv|product velocity|app\.example/i);
     expect(b.block).toContain("<!-- sync:begin item=");
     expect(b.block).toContain(NEUTRAL_FOOTER);
@@ -22,7 +22,7 @@ describe("buildTrackingIssue under other names", () => {
   });
   it("without names the output is today's", () => {
     const b = buildTrackingIssue(base);
-    expect(b.labels).toEqual(["pm:project/mobile-app", "pm:moscow/must", "pm:rank/top-10", "pm:type/bug", "pm:group/payments", "pm:value/defend-revenue", "pm:quarter/q3-2027", "pm:define"]);
+    expect(b.labels).toEqual(["pm:project/mobile-app", "pm:moscow/must", "pm:rank/top-10", "pm:type/bug", "pm:group/payments", "pm:value/defend-revenue", "pm:quarter/q3-2027", "pm:phase/define", "pm:define"]);
     expect(b.block).toContain("Managed by Product Velocity");
     expect(b.hash).toBe(buildTrackingIssue({ ...base, names: {} }).hash);
   });

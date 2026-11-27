@@ -116,7 +116,9 @@ const OVERRIDES: Record<string, Link> = {
   hypothesis: sent("Issue body, managed block, section \"## Hypothesis (IF / THEN / RESULTING IN)\"", "Jira description, section \"Hypothesis (IF / THEN / RESULTING IN)\"; read back to compare, with Keep Product Velocity or Keep Jira"),
   artifacts: sent("Issue body, managed block, section \"## Links\" (links; a link set to \"Do not share\" on the Spec tab stays out)", "Jira description, section \"Artifacts\" (links); can be switched off per project (Field configuration)"),
   screenshots: sent("Issue body, section \"## Files\" (share links, private repositories only)", "Jira description, section \"Files\" (share links of attached files; anyone who can open the issue can open them); can be switched off per project (Field configuration)"),
-  initiative_phase: { github: "Not synced. May suggest Build when the first child issue starts", jira: NONE },
+  // a label goes out, but no tracker ever sets the phase back (the "You edit it" rule): so this is not a "Sent to" row
+  initiative_phase: { github: "Label pm:phase/<phase> (for example pm:phase/discover) goes out; switch it off in Settings, Integrations, GitHub, Field configuration. Never set from GitHub; a first child issue may suggest Build", jira: "Label pm:phase/<phase> (for example pm:phase/discover) goes out; switch it off in Settings, Integrations, Jira, Field configuration. Never set from Jira" },
+  product_manager: { github: "Not synced here: the issue assignees are the Assignees column", jira: "Sent as the assignee of a NEW issue only (matched to a Jira user by email, never changed afterwards, left empty with a note when no single user matches)" },
   initiative_status: same("Not synced. A closed issue never sets it"),
   health: { github: "Not synced. Signals only suggest", jira: NONE },
   stack_rank: sent("Label pm:rank/top-10, top-25, top-50 or later (the band, never the number)", "Label pm:rank/top-10, top-25, top-50 or later (the band, never the number)"),

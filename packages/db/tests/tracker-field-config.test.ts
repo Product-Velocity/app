@@ -83,6 +83,14 @@ describe("tracker_set_field_config", () => {
     expect(await stored(githubProject)).toEqual([]);
     await set(f.alice, githubProject, [{ slot: "github.label.quarter", enabled: false }]);
     expect(await stored(githubProject)).toEqual([{ slot: "github.label.quarter", enabled: false, field_id: null }]);
+    // Initiative Phase label (migration phase_label_default_on): ON by default like the quarter, for both trackers; a switched-off row is kept, a prefix is accepted
+    await set(f.alice, githubProject, [{ slot: "github.label.phase", enabled: true }]);
+    expect(await stored(githubProject)).toEqual([]);
+    await set(f.alice, githubProject, [{ slot: "github.label.phase", enabled: false }]);
+    expect(await stored(githubProject)).toEqual([{ slot: "github.label.phase", enabled: false, field_id: null }]);
+    await set(f.alice, projectA, [{ slot: "jira.label.phase", enabled: true, text: "stage/" }]);
+    expect((await stored(projectA)).map((r) => r.slot)).toEqual(["jira.label.phase"]);
+    await set(f.alice, projectA, []);
     for (const slot of ["github.label.category", "jira.label.category"]) expect(await errorCode(set(f.alice, githubProject, [{ slot, enabled: true }])), slot).toBe("22023");
     await set(f.alice, githubProject, []);
     expect(await errorCode(set(f.alice, projectA, [{ slot: "jira.label.tags", enabled: true, field: "customfield_1" }])), "a field on a switch").toBe("22023");

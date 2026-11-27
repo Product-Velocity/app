@@ -9,13 +9,22 @@ const requests = [req("R8P-5"), req("R8P-6"), req("DATA-9")];
 const tree = [
   node("R8P-5"), node("R8P-50", { level: 2, parentKey: "R8P-5", type: "Story", status: "In Progress", category: "indeterminate" }),
   node("R8P-51", { level: 2, parentKey: "R8P-5", type: "Bug", status: "Done" }),
-  node("R8P-6", { status: "In Progress", category: "indeterminate" }), node("OTHER-1"),
+  node("R8P-6", { status: "In Progress", category: "indeterminate" }),
 ];
 const rows = buildEpicRows(requests, tree, {});
+// an epic somebody made in Jira directly under the issue, which nobody listed
+const found = buildEpicRows(requests, [...tree, node("OTHER-1"), node("OTHER-2", { level: 2, parentKey: "OTHER-1", type: "Task" })], {});
 
 describe("buildEpicRows", () => {
-  it("lists each listed epic followed by its children, and leaves out tree rows nobody listed", () => {
+  it("lists each listed epic followed by its children, then the epics found under the issue that nobody listed", () => {
     expect(rows.map((r) => `${r.kind}:${r.key}`)).toEqual(["epic:R8P-5", "child:R8P-50", "child:R8P-51", "epic:R8P-6", "epic:DATA-9"]);
+    expect(found.map((r) => `${r.kind}:${r.key}`)).toEqual(["epic:R8P-5", "child:R8P-50", "child:R8P-51", "epic:R8P-6", "epic:DATA-9", "epic:OTHER-1", "child:OTHER-2"]);
+  });
+  it("never offers to check or remove an epic that is only found in Jira", () => {
+    const row = found[5]!;
+    expect(row.request).toBeNull();
+    expect(checkable(row)).toBe(false);
+    expect(resultText(row, false).label).toBe("In Jira");
   });
   it("keeps an epic that was not read yet, with nothing invented for it", () => {
     expect(rows[4]).toMatchObject({ title: null, type: null, status: null, url: null });

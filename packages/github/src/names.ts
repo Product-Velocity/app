@@ -3,7 +3,7 @@
 // every builder behaves exactly as before.
 
 /** The label families that carry a value: `<prefix><slug>`. The prefix includes its trailing "/" (default `pv:moscow/`). */
-export const LABEL_KINDS = ["project", "moscow", "rank", "type", "group", "focus", "value", "quarter", "tag"] as const;
+export const LABEL_KINDS = ["project", "moscow", "rank", "type", "group", "focus", "value", "quarter", "phase", "tag"] as const;
 export type LabelKind = (typeof LABEL_KINDS)[number];
 
 /**
@@ -18,7 +18,7 @@ export const DEFAULT_NAMESPACE = "pm:";
 export const LEGACY_REMOVED = "pv:removed";
 
 export const DEFAULT_NAMES = {
-  prefix: { project: "pm:project/", moscow: "pm:moscow/", rank: "pm:rank/", type: "pm:type/", group: "pm:group/", focus: "pm:focus/", value: "pm:value/", quarter: "pm:quarter/", tag: "pm:tag/" } as Record<LabelKind, string>,
+  prefix: { project: "pm:project/", moscow: "pm:moscow/", rank: "pm:rank/", type: "pm:type/", group: "pm:group/", focus: "pm:focus/", value: "pm:value/", quarter: "pm:quarter/", phase: "pm:phase/", tag: "pm:tag/" } as Record<LabelKind, string>,
   /** No base label by default (it used to be `product-velocity`). A project can still choose one. */
   base: "",
   removed: "pm:removed",
@@ -108,6 +108,11 @@ export function isOwnedLabel(label: string, n?: Names | null): boolean {
   if ((r.base !== "" && label === r.base) || label === LEGACY_BASE || label.startsWith(LEGACY_NAMESPACE) || label.startsWith(DEFAULT_NAMESPACE)) return true;
   if (label === r.define) return true;
   return LABEL_KINDS.some((k) => label.startsWith(r.prefix[k])) || label.startsWith(r.jiraMarker);
+}
+
+/** The Initiative ID (R-102) as the Jira label `<marker><id>`, or null when the id is not a plain code. Finds an issue again after a create whose answer was lost. */
+export function itemIdLabel(code: unknown, n?: Names | null): string | null {
+  return typeof code === "string" && /^[A-Za-z0-9._-]{1,32}$/.test(code) ? `${resolveNames(n).jiraMarker}${code}` : null;
 }
 
 /** The text that replaces "Managed by Product Velocity" in stealth mode (the footer of a managed block). */

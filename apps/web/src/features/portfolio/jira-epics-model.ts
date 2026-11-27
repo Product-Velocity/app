@@ -22,7 +22,11 @@ export type EpicGridRow = {
 
 export const NOT_READ = "Not read yet";
 
-/** The listed epics in list order, each followed by its children as Jira last reported them. A tree row that no request lists is left out. */
+/**
+ * The listed epics in list order, each followed by its children as Jira last reported them. Epics found under the initiative's issue that nobody listed
+ * (created in Jira) follow, so this one grid shows everything under the issue and the tab needs no second table. They have no request: they are shown
+ * and copied, never checked or taken off the list.
+ */
 export function buildEpicRows(requests: JiraEpicRequestRow[], tree: JiraTreeRow[], checks: Record<string, CheckResult>): EpicGridRow[] {
   const byKey = new Map(tree.map((t) => [t.key, t]));
   const out: EpicGridRow[] = [];
@@ -33,6 +37,14 @@ export function buildEpicRows(requests: JiraEpicRequestRow[], tree: JiraTreeRow[
       assignee: t?.assignee ?? null, url: t?.url ?? null, check: checks[r.key] ?? null,
     });
     for (const c of tree.filter((x) => x.level === 2 && x.parentKey === r.key)) {
+      out.push({ key: c.key, kind: "child", request: null, title: c.title, type: c.type, status: c.status, category: c.category, assignee: c.assignee, url: c.url, check: null });
+    }
+  }
+  const listed = new Set(requests.map((r) => r.key));
+  for (const t of tree) {
+    if (t.level !== 1 || listed.has(t.key)) continue;
+    out.push({ key: t.key, kind: "epic", request: null, title: t.title, type: t.type, status: t.status, category: t.category, assignee: t.assignee, url: t.url, check: null });
+    for (const c of tree.filter((x) => x.level === 2 && x.parentKey === t.key)) {
       out.push({ key: c.key, kind: "child", request: null, title: c.title, type: c.type, status: c.status, category: c.category, assignee: c.assignee, url: c.url, check: null });
     }
   }
@@ -63,7 +75,7 @@ export function targetRows(shown: EpicGridRow[], selected: ReadonlySet<string>):
 }
 
 /** Listed epics that a check can look at: not linked yet. */
-export const checkable = (r: EpicGridRow) => r.kind === "epic" && r.request?.state !== "linked";
+export const checkable = (r: EpicGridRow) => r.kind === "epic" && r.request !== null && r.request.state !== "linked";
 /** Listed epics that can be taken off the list: not linked yet (a linked one is already in Jira). */
 export const removable = checkable;
 
@@ -94,6 +106,7 @@ export function linksText(rows: EpicGridRow[], origin: string | null = siteOrigi
 /** What the Check column says for an epic, in words (colour is never the only signal). */
 export function resultText(r: EpicGridRow, readOnly: boolean): { label: string; detail: string; tone: "ok" | "bad" | "plain" } {
   const q = r.request;
+  if (r.kind === "epic" && !q) return { label: "In Jira", detail: "found under this issue; it is not on the list", tone: "plain" };
   if (q?.state === "linked") return { label: "Linked", detail: `under the Initiative${q.previousParent ? ` (was under ${q.previousParent})` : ""}`, tone: "ok" };
   if (q?.state === "failed") return { label: "Jira refused it", detail: q.lastError ?? "no reason given", tone: "bad" };
   if (r.check) {

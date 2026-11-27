@@ -51,6 +51,7 @@ export function wroteJira(fields: Record<string, unknown>): string[] {
   if (Array.isArray(fields.labels)) out.push(`Labels (${fields.labels.length})`);
   if ("duedate" in fields) out.push("Due date");
   if ("priority" in fields) out.push("Priority");
+  if ("assignee" in fields) out.push("Assignee");
   if ("parent" in fields) out.push("Parent issue");
   return out;
 }

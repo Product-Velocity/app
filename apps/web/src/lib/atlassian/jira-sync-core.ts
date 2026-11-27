@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { compareTexts, hashText, resolveNames, type TextVerdict } from "@pv/github";
+import { compareTexts, hashText, itemIdLabel, resolveNames, type TextVerdict } from "@pv/github";
 import { adfToText, markdownToAdf, type AdfNode } from "./adf";
 import { LINK_SECTIONS, TEXT_SECTIONS, attachmentsHash, attachmentsText, composeDescription, linksText, isSimpleNodes, nodesText, splitDescription, type Link, type Split, type TextSection } from "./jira-sections";
 import { buildJiraPayload, type JiraFieldMap } from "./outbound";
@@ -10,7 +10,7 @@ import { SELECT_SLOTS, compareSelect, readSelectValue } from "./select-map";
 // (the base is what both sides agreed at the last sync, hashes only), decide what goes out, what is taken over, and what is still a conflict.
 // Pure, so the whole table is tested. Status is not an input anywhere (rule 6); nothing here can transition an issue.
 
-export type PvItem = { focus_area?: string | null; value_type?: string | null; g2m_quarter?: string | null; tags?: string[]; id: string; name: string; summary?: string | null; description: string | null; hypothesis?: string | null; moscow?: string | null; g2m_date_est?: string | null; planned_start?: string | null; stack_rank?: number | null; change_type?: string | null; theme?: string | null; health?: string | null; initiative_status?: string | null; initiative_phase?: string | null };
+export type PvItem = { /** The Initiative ID (R-102), sent as the label pm:item/R-102. */ code?: string | null; focus_area?: string | null; value_type?: string | null; g2m_quarter?: string | null; tags?: string[]; id: string; name: string; summary?: string | null; description: string | null; hypothesis?: string | null; moscow?: string | null; g2m_date_est?: string | null; planned_start?: string | null; stack_rank?: number | null; change_type?: string | null; theme?: string | null; health?: string | null; initiative_status?: string | null; initiative_phase?: string | null };
 export type JiraNow = { summary: string; description: unknown; labels: string[] };
 /** Hashes both sides agreed on at the last sync. `attachments` is the hash of the Artifacts and Files sections as last written. */
 export type JiraBase = { title?: string; summary?: string; description?: string; hypothesis?: string; attachments?: string; /** The Product Velocity value of each select field both sides agreed on at the last sync (issue #512). */ sel_health?: string; sel_initiative_status?: string; sel_initiative_phase?: string };
@@ -94,10 +94,12 @@ type PlanInput = {
 
 export function planJiraSend(i: PlanInput): SendPlan {
   const item = { initiative_name: i.pv.name, summary: i.pv.summary ?? "", description: i.pv.description ?? "", hypothesis: i.pv.hypothesis ?? "", moscow: i.pv.moscow ?? undefined, g2m_date_est: i.pv.g2m_date_est ?? undefined, planned_start: i.pv.planned_start ?? undefined, stack_rank: i.pv.stack_rank ?? undefined, change_type: i.pv.change_type ?? undefined, theme: i.pv.theme ?? undefined, focus_area: i.pv.focus_area ?? undefined, value_type: i.pv.value_type ?? undefined, g2m_quarter: i.pv.g2m_quarter ?? undefined, tags: i.pv.tags ?? [], health: i.pv.health ?? undefined, initiative_status: i.pv.initiative_status ?? undefined, initiative_phase: i.pv.initiative_phase ?? undefined };
-  const marker = i.jira ? undefined : markerFor(i.pv.id, resolveNames(i.map.names).jiraMarker);
+  // the label that names the initiative in Jira: its Initiative ID (R-102); a hash only for an item that has no usable code. On every send, so it stays on the issue.
+  const idLabel = itemIdLabel(i.pv.code, i.map.names);
+  const marker = i.jira ? undefined : idLabel ?? markerFor(i.pv.id, resolveNames(i.map.names).jiraMarker);
   const shown = { ...(i.map.off?.includes("jira.body.artifacts") ? {} : { artifacts: i.artifacts }), ...(i.map.off?.includes("jira.body.files") ? {} : { files: i.files }) };
   const attHash = attachmentsHash(shown.artifacts, shown.files, i.documents);
-  const payloadInput = { item, fields: i.map, ...(i.projectName ? { projectName: i.projectName } : {}), ...(i.artifacts ? { artifacts: i.artifacts } : {}), ...(i.files ? { files: i.files } : {}), ...(i.documents ? { documents: i.documents } : {}) };
+  const payloadInput = { item, fields: i.map, ...(idLabel ? { marker: idLabel } : {}), ...(i.projectName ? { projectName: i.projectName } : {}), ...(i.artifacts ? { artifacts: i.artifacts } : {}), ...(i.files ? { files: i.files } : {}), ...(i.documents ? { documents: i.documents } : {}) };
   if (!i.jira) {
     const p = buildJiraPayload({ ...payloadInput, ...(i.create ? { create: i.create } : {}), ...(marker ? { marker } : {}) });
     const c = compareJira(i.pv, { summary: i.pv.name, description: null, labels: [] }, null);
