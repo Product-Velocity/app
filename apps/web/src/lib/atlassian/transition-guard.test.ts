@@ -52,7 +52,15 @@ describe("no other code path can transition or delete a Jira issue", () => {
   it("the Jira request type has no DELETE, so no code can send one", () => {
     const w = SOURCES.find((s) => s.path === "lib/atlassian/jira-write.ts")!.text;
     expect(w).toMatch(/method: "GET" \| "POST" \| "PUT"/);
-    for (const s of SOURCES.filter((x) => (x.path.startsWith("lib/atlassian/") || x.path.startsWith("app/(workspace)/portfolio/jira")))) expect(s.text, s.path).not.toMatch(/["']DELETE["']/);
+    // one exception (issue 744): server.ts removes a webhook registration left over from a reconnect, DELETE /webhook and nothing else; the connection check's own
+    // cleanup passes its method in and has no quoted DELETE. The Jira request type itself, and every other file, stay without one.
+    for (const s of SOURCES.filter((x) => (x.path.startsWith("lib/atlassian/") || x.path.startsWith("app/(workspace)/portfolio/jira")) && x.path !== "lib/atlassian/server.ts")) expect(s.text, s.path).not.toMatch(/["']DELETE["']/);
+    const server = SOURCES.find((x) => x.path === "lib/atlassian/server.ts")!.text;
+    expect(server.match(/["']DELETE["']/g)).toHaveLength(1);
+    expect(server).toMatch(/\/rest\/api\/3\/webhook`,\s*\{\s*method: "DELETE"/);
+  });
+  it("only the daily webhook maintenance imports the webhook remover", () => {
+    expect(withText(/jiraWebhookRemover/)).toEqual(["lib/atlassian/jira-webhooks-server.ts", "lib/atlassian/server.ts"]);
   });
   it("no Jira payload builder, outside jira-close.ts, writes a status or a resolution", () => {
     const builders = SOURCES.filter((s) => s.path.startsWith("lib/atlassian/") && s.path !== "lib/atlassian/jira-close.ts" && s.path !== "lib/atlassian/jira-ready.ts" && s.path !== "lib/atlassian/jira-status-sync.ts");
