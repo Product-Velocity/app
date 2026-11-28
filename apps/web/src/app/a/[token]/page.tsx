@@ -6,13 +6,26 @@ import { cleanProgress, type BallotItem, type Method } from "@/lib/alignment-bal
 import { cardRows } from "@/lib/voter-card";
 import { Ballot } from "./ballot";
 import { LinkButton } from "./join-form";
-import { VoterShell } from "./voter-shell";
+import { VoterShell, type VoterBrand } from "./voter-shell";
+import { loadVoterBrand, loadVoterBrandForParticipant } from "@/lib/brand/voter-brand-server";
+import type { VoterBrandView } from "@/lib/brand/voter-brand";
 
-export const metadata = { title: "Your vote · Product Velocity", robots: { index: false, follow: false }, referrer: "no-referrer" };
 export const dynamic = "force-dynamic";
 
-function Shell({ title, children }: { title: string; children: React.ReactNode }) {
-  return <VoterShell title={title}>{children}</VoterShell>;
+function Shell({ title, children, brand }: { title: string; children: React.ReactNode; brand?: VoterBrand | null }) {
+  return <VoterShell title={title} brand={brand}>{children}</VoterShell>;
+}
+
+/** The brand as the shell wants it (issue #750): name, logo address and the checked colours, or null for the Product Velocity look. */
+const shellBrand = (v: VoterBrandView | null): VoterBrand | null => (v ? { name: v.name, logoSrc: v.logoPath, vars: v.vars } : null);
+
+/** The tab title names the company when the session is branded, and Product Velocity otherwise. */
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const link = await resolveLink(token);
+  const admin = createAdminClient({ via: "system" });
+  const brand = link.kind === "ok" ? await loadVoterBrand(admin, link.participant.tenant_id, link.session.id) : link.kind === "replaced" ? await loadVoterBrandForParticipant(admin, link.participantId) : null;
+  return { title: brand ? `Your vote · ${brand.name}` : "Your vote · Product Velocity", robots: { index: false, follow: false }, referrer: "no-referrer" as const };
 }
 
 /** The page behind a participant's personal link: no account, no sign-in. */
@@ -28,8 +41,9 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
     );
   }
   if (link.kind === "replaced") {
+    const replacedBrand = shellBrand(await loadVoterBrandForParticipant(createAdminClient({ via: "system" }), link.participantId));
     return (
-      <Shell title="A newer link was sent to you">
+      <Shell title="A newer link was sent to you" brand={replacedBrand}>
         <p>Use the most recent email you received for this session. If you cannot find it, we can send a new link to the address you were invited on.</p>
         <LinkButton token={token} action="new" label="Email me a new link" />
       </Shell>
@@ -37,13 +51,14 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
   }
 
   const { participant: p, session: s } = link;
-  if (s.status === "draft") return <Shell title={s.name}><p>This session has not opened yet. Try again when you get the invitation.</p></Shell>;
+  const brand = shellBrand(await loadVoterBrand(createAdminClient({ via: "system" }), p.tenant_id, s.id));
+  if (s.status === "draft") return <Shell title={s.name} brand={brand}><p>This session has not opened yet. Try again when you get the invitation.</p></Shell>;
   if (s.status !== "open") {
     // after the close: the anonymous results, only if the admin allowed it, and only to the browser the link belongs to
     const snap = s.show_results && p.consent_at && (await sameBrowser(p)) ? await finalResults(s.id) : null;
     if (!snap) {
       return (
-        <Shell title={s.name}>
+        <Shell title={s.name} brand={brand}>
           <p>This session is closed. Thank you for taking part.</p>
           {s.show_results && <p className="muted">The anonymous results are shown to the browser where you opened your link.</p>}
         </Shell>
@@ -57,7 +72,7 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
     const names = new Map(snap.items.map((i) => [i.id, i.name]));
     const yours = (id: string) => { const v = mine.get(id); if (!v) return ""; if (v.moscow) return `Your choice: ${v.moscow === "wont" ? "Won't" : v.moscow[0]!.toUpperCase() + v.moscow.slice(1)}`; if (v.rank) return `Your place: ${v.rank}`; if (v.coins) return `Your coins: ${v.coins}`; return v.impact ? `Your scores: ${v.impact} / ${v.confidence} / ${v.ease}` : ""; };
     return (
-      <VoterShell title={`${s.name}: results`}>
+      <VoterShell title={`${s.name}: results`} brand={brand}>
           <p className="muted">What {snap.voters} {snap.voters === 1 ? "person" : "people"} decided. These results are anonymous.</p>
           <ol className="plain-list">
             {snap.results.joint.map((r) => (
@@ -75,7 +90,7 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
   const mine = await sameBrowser(p);
   if (p.browser_hash && !mine) {
     return (
-      <Shell title="This link was opened in another browser">
+      <Shell title="This link was opened in another browser" brand={brand}>
         <p>For your privacy a personal link works in the browser where it was first opened. To continue here, we can send you a new link; it replaces the old one.</p>
         <LinkButton token={token} action="new" label="Email me a new link" />
       </Shell>
@@ -84,8 +99,17 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
 
   if (!mine) {
     const method = METHODS.find((m) => m.value === s.method)!;
+    // with no consent step (issue #750) the person only starts: the click stays so that a mail scanner opening the link does not bind it to its own browser
+    if (!s.consent_required) {
+      return (
+        <Shell title={s.name} brand={brand}>
+          <p><strong>{method.label}.</strong> {method.help}</p>
+          <LinkButton token={token} action="join" label="Start voting" refresh />
+        </Shell>
+      );
+    }
     return (
-      <Shell title={s.name}>
+      <Shell title={s.name} brand={brand}>
         <p><strong>{method.label}.</strong> {method.help}</p>
         <div className="notice">
           <p><strong>Before you start</strong></p>
@@ -113,7 +137,7 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
   const b = (ballot as { state: string; progress: unknown; revision: number }[] | null)?.[0];
   const method = METHODS.find((m) => m.value === s.method)!;
   return (
-    <VoterShell title={s.name}>
+    <VoterShell title={s.name} brand={brand}>
         <p className="muted"><strong>{method.label}.</strong> {method.help}{s.method === "coins" ? ` You have ${s.coins_total} coins, at most ${s.coins_max_per_item} on one initiative.` : ""}</p>
         <Ballot
           token={token}

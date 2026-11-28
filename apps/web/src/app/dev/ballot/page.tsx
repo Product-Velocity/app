@@ -5,5 +5,5 @@ import { BallotHarness } from "./harness";
 export default async function BallotTestPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (process.env.NEXT_PUBLIC_E2E_HARNESS !== "1") notFound();
   const q = await searchParams;
-  return <BallotHarness method={q.method ?? "coins"} n={Number(q.n ?? 6)} />;
+  return <BallotHarness method={q.method ?? "coins"} n={Number(q.n ?? 6)} brand={q.brand ? { color: q.brand, name: q.name ?? "Acme Media", logo: q.logo === "1" } : undefined} />;
 }

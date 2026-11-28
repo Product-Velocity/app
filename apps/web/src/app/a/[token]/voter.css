@@ -6,7 +6,7 @@
  */
 .voter { min-height: 100dvh; background: var(--surface); color: var(--ink); font: 400 16px/26px var(--font-sans, "IBM Plex Sans", system-ui, sans-serif); -webkit-text-size-adjust: 100%; }
 .voter *, .voter *::before, .voter *::after { box-sizing: border-box; }
-.voter :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.voter :focus-visible { outline: 2px solid var(--brand-ring, var(--brand)); outline-offset: 2px; }
 .voter a { color: var(--brand-strong); }
 .voter .muted { color: var(--ink-muted); }
 

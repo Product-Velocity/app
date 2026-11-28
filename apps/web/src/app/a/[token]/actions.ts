@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 import { generateInviteToken, hashInviteToken } from "@/lib/auth/invite-token";
 import { CONSENT_VERSION } from "@/lib/alignment";
 import { buildNewLinkEmail } from "@/lib/alignment-mail";
+import { emailBrandFrom } from "@/lib/brand/voter-brand";
+import { loadVoterBrandForParticipant } from "@/lib/brand/voter-brand-server";
 import { browserCookie, hashSecret, newBrowserSecret, resolveLink, sameBrowser } from "@/lib/alignment-link";
 import { sendLogged } from "@/lib/email/send";
 import { loadEmailOverride } from "@/lib/email/override";
@@ -13,7 +15,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export type LinkResult = { ok?: string; error?: string } | null;
 
-/** "I agree and continue": records consent and ties the link to this browser (a cookie only this browser holds). */
+/**
+ * "I agree, continue" (or "Start voting" when the session has no consent step, issue #750): records the join, and consent only when the session asks for it
+ * (version "none" otherwise), and ties the link to this browser (a cookie only this browser holds). The click stays even without consent: a mail scanner that
+ * only opens the link must not bind it to the scanner's browser.
+ */
 export async function joinSession(token: string): Promise<LinkResult> {
   const s = await resolveLink(token);
   if (s.kind !== "ok") return { error: "This link is not valid any more." };
@@ -24,7 +30,7 @@ export async function joinSession(token: string): Promise<LinkResult> {
   const admin = createAdminClient({ via: "system" });
   const closes = s.session.closes_at ? new Date(s.session.closes_at) : null;
   const { error } = await admin.from("alignment_participants")
-    .update({ browser_hash: hashSecret(secret), bound_at: new Date().toISOString(), consent_at: p.consent_at ?? new Date().toISOString(), consent_version: CONSENT_VERSION })
+    .update({ browser_hash: hashSecret(secret), bound_at: new Date().toISOString(), consent_at: p.consent_at ?? new Date().toISOString(), consent_version: s.session.consent_required ? CONSENT_VERSION : "none" })
     .eq("id", p.id).is("browser_hash", null);
   if (error) return { error: "We could not save that. Please try again." };
   (await cookies()).set(browserCookie(p.id), secret, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/a", expires: closes && closes.getTime() > Date.now() ? new Date(closes.getTime() + 7 * 86400_000) : new Date(Date.now() + 90 * 86400_000) });
@@ -44,7 +50,9 @@ export async function requestNewLink(token: string): Promise<LinkResult> {
   const { data } = await admin.rpc("alignment_link_resend", { p_old_hash: hashInviteToken(token), p_new_hash: hashInviteToken(next) });
   const row = (data as { id: string; email: string; name: string | null; session_name: string; closes_at: string | null }[] | null)?.[0];
   if (!row) return generic;
-  const mail = buildNewLinkEmail({ name: row.name, session: row.session_name, closesAt: row.closes_at, link: `${await siteUrl()}/a/${next}`, siteUrl: await siteUrl(), override: await loadEmailOverride("alignment.new-link") });
+  const site = await siteUrl();
+  const brand = emailBrandFrom(await loadVoterBrandForParticipant(admin, row.id), site);
+  const mail = buildNewLinkEmail({ name: row.name, session: row.session_name, closesAt: row.closes_at, link: `${site}/a/${next}`, siteUrl: site, override: await loadEmailOverride("alignment.new-link"), brand });
   const sent = await sendLogged("alignment.new-link", { to: row.email, ...mail });
   if (!sent.ok) console.error(JSON.stringify({ alignment: "new-link", ok: false }));
   return generic;

@@ -31,6 +31,9 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
   const { data: tenantRow } = await supabase.from("tenants").select("currency").eq("id", active.tenantId).maybeSingle();
   const currency = (tenantRow as { currency: string | null } | null)?.currency ?? null;
   const voterFields = ((s.voter_fields as string[] | null) ?? []);
+  // whether the workspace brand is confirmed and switched on for voting (issue #750), so the setting can say what voters will see
+  const { data: brandRow } = await supabase.from("workspace_brand").select("status, use_on_voting, primary_color").eq("tenant_id", active.tenantId).maybeSingle();
+  const brandAvailable = (brandRow as { status: string; use_on_voting: boolean; primary_color: string | null } | null)?.status === "confirmed" && (brandRow as { use_on_voting: boolean } | null)?.use_on_voting === true && !!(brandRow as { primary_color: string | null } | null)?.primary_color;
   // before the session opens the preview reads the initiatives live (customer-safe fields only); after, it shows the frozen snapshot
   let shown = items.map((i) => ({ name: i.shown_name, summary: i.shown_summary, value: i.shown_value_proposition, id: i.item_id, more: cardRows({ businessLine: i.shown_business_line, businessValue: i.shown_business_value, effort: i.shown_effort }, currency) }));
   if (s.status === "draft" && items.length > 0) {
@@ -72,8 +75,9 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
       <div className="card">
         {state !== "draft" && <p className="muted">The settings of a session that has opened are locked. Make a new session to change them.</p>}
         <SettingsForm
+          brandAvailable={brandAvailable}
           locked={state !== "draft" || !isAdmin}
-          session={{ id: s.id, name: s.name, method: s.method, groups, weighting: s.weighting, excluded: s.excluded_groups, coinsTotal: s.coins_total, coinsMax: s.coins_max_per_item, showResults: s.show_results, retention: s.retention_months, closesAt: s.closes_at, voterFields: (s.voter_fields as string[] | null) ?? [] }}
+          session={{ id: s.id, name: s.name, method: s.method, groups, weighting: s.weighting, excluded: s.excluded_groups, coinsTotal: s.coins_total, coinsMax: s.coins_max_per_item, showResults: s.show_results, retention: s.retention_months, closesAt: s.closes_at, voterFields: (s.voter_fields as string[] | null) ?? [], useBrand: s.use_brand !== false, consentRequired: s.consent_required === true, namesAck: !!s.names_ack_at }}
         />
       </div>
 
@@ -82,10 +86,12 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
       <h2>Preview as a participant</h2>
       <div className="card stack" aria-label="Participant preview">
         <p className="muted">This is what a participant sees. {state === "draft" ? "It reads the initiatives as they are now; opening the session fixes it." : "It shows the fixed copy taken when the session opened."} Only the card fields ticked in the settings are shown, and the Business Value is a commercial number.</p>
-        <div className="notice">
-          <p><strong>Before you start</strong></p>
-          <ul>{CONSENT_LINES.map((l) => <li key={l}>{l}</li>)}<li>Your personal data is kept for {s.retention_months} months after the session closes.</li></ul>
-        </div>
+        {s.consent_required ? (
+          <div className="notice">
+            <p><strong>Before you start</strong></p>
+            <ul>{CONSENT_LINES.map((l) => <li key={l}>{l}</li>)}<li>Your personal data is kept for {s.retention_months} months after the session closes.</li></ul>
+          </div>
+        ) : <p className="muted">No consent step: voters press Start voting. Your company&apos;s own policies apply.</p>}
         <p><strong>{method.label}.</strong> {method.help}{s.method === "coins" ? ` You have ${s.coins_total} coins, at most ${s.coins_max_per_item} on one initiative.` : ""}</p>
         <ol className="plain-list">
           {shown.map((i, n) => (
