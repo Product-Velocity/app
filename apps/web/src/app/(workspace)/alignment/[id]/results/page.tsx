@@ -4,10 +4,14 @@ import { requireWorkspace } from "@/lib/session";
 import { computeResults, finalResults, teamPlaces, type ResultsSnapshot } from "@/lib/alignment-results";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { METHODS } from "@/lib/alignment";
+import { MOSCOW_LABEL, MOSCOW_ORDER } from "@pv/domain";
 import { RANK_STATUS } from "@/lib/alignment-rank";
 import { loadSuggestion } from "@/lib/alignment-rank-server";
 import { SuggestedOrder } from "./suggested-order";
-import { applyVote, undoVote } from "./actions";
+import { loadMoscow } from "@/lib/alignment-moscow-server";
+import { MOSCOW_STATUS } from "@/lib/alignment-moscow";
+import { MoscowApply } from "./moscow-apply";
+import { applyMoscow, applyVote, undoMoscow, undoVote } from "./actions";
 
 export const metadata = { title: "Alignment results · Product Velocity" };
 export const dynamic = "force-dynamic";
@@ -38,7 +42,15 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
   const contested = new Map(r.contested.map((c) => [c.itemId, c]));
   const method = METHODS.find((m) => m.value === s.method)!;
   // the order the vote suggests for the Stack Rank, and what was applied before (closed sessions only; admins only, as the whole page is)
-  const suggestion = final && isAdmin ? await loadSuggestion(supabase, active.tenantId, id, snap) : null;
+  const isMoscow = s.method === "moscow";
+  const suggestion = final && isAdmin && !isMoscow ? await loadSuggestion(supabase, active.tenantId, id, snap) : null;
+  // the MoSCoW vote is set on the field instead of the Stack Rank (issue #746): the rows to set, and what was set before with the reasons (admins only)
+  const moscowRows = final && isAdmin && isMoscow ? await loadMoscow(supabase, active.tenantId, id, snap) : null;
+  const { data: moscowApplied } = moscowRows
+    ? await supabase.from("alignment_moscow_applications").select("id, created_at, created_by, changed, changes, undone_at").eq("tenant_id", active.tenantId).eq("session_id", id).order("created_at", { ascending: false })
+    : { data: [] };
+  const moscowApplications = (moscowApplied ?? []) as { id: string; created_at: string; created_by: string | null; changed: number; changes: { item: string; from: string | null; to: string; reason?: string }[]; undone_at: string | null }[];
+  const moscowNames = new Map((moscowRows?.rows ?? []).map((x) => [x.itemId, `${x.code} ${x.name}`]));
   const { data: applied } = final && isAdmin
     ? await supabase.from("alignment_rank_applications").select("id, created_at, created_by, moved, scope, undone_at").eq("tenant_id", active.tenantId).eq("session_id", id).order("created_at", { ascending: false })
     : { data: [] };
@@ -61,9 +73,32 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
       <h1>{isAdmin ? "Results" : s.name}</h1>
       <p><strong>{final ? "Final results" : "Provisional: the session is still open"}</strong> · {method.label} · {s.weighting === "equal" ? "groups count equally" : "groups count by headcount"}</p>
       <p>{isAdmin ? <>{snap.voters} of {snap.invited} invited {snap.invited === 1 ? "person has" : "people have"} voted</> : <>{snap.voters} {snap.voters === 1 ? "person" : "people"} voted</>}{final ? "" : ", and a vote can still change"}. {final ? `Stored ${new Date(snap.computedAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}; it does not change.` : ""}</p>
-      {isAdmin && status && RANK_STATUS[status] && <p role="status" className="notice">{RANK_STATUS[status]}</p>}
+      {isAdmin && status && (isMoscow ? MOSCOW_STATUS[status] : RANK_STATUS[status]) && <p role="status" className="notice">{isMoscow ? MOSCOW_STATUS[status] : RANK_STATUS[status]}</p>}
       {snap.voters === 0 && <p className="notice">Nobody has voted yet.</p>}
       {r.groupsNote && <p className="notice">{r.groupsNote}</p>}
+
+      {r.moscow && (
+        <section aria-labelledby="moscow-suggested">
+          <h2 id="moscow-suggested">Suggested MoSCoW</h2>
+          <p className="muted">The most chosen bucket wins. When two are level, the more cautious one is suggested and the initiative is marked contested, as it is when someone chose Must and someone chose Won&rsquo;t. Shares follow the group weighting above; the numbers in brackets are people. {isAdmin ? "A person sets the final MoSCoW; nothing here changes it." : ""}</p>
+          <div className="table-wrap">
+            <table className="table">
+              <caption className="sr-only">Suggested MoSCoW by initiative</caption>
+              <thead><tr><th scope="col">Initiative</th><th scope="col">Suggested</th>{MOSCOW_ORDER.map((m) => <th scope="col" key={m}>{MOSCOW_LABEL[m]}</th>)}<th scope="col">Note</th></tr></thead>
+              <tbody>
+                {r.moscow.map((m) => (
+                  <tr key={m.itemId}>
+                    <td>{name.get(m.itemId)}</td>
+                    <td><strong>{snap.voters === 0 ? "–" : MOSCOW_LABEL[m.suggested]}</strong></td>
+                    {MOSCOW_ORDER.map((k) => <td key={k}>{m.shares[k].toFixed(0)}% <span className="muted">({m.counts[k]})</span></td>)}
+                    <td>{m.tied ? <strong>Contested: level, the more cautious choice is suggested</strong> : m.contested ? <strong>Contested: Must and Won&rsquo;t both chosen</strong> : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <div className="table-wrap">
         <table className="table">
@@ -96,6 +131,36 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
         </table>
       </div>
       <p className="muted">Equal scores share a place and are shown as tied. Gap compares the crowd&rsquo;s place with the team&rsquo;s Stack Rank among these initiatives. Groups with fewer than 5 voters are never shown on their own. A person decides the Stack Rank; nothing here changes it.</p>
+      {moscowRows && (
+        <section aria-labelledby="moscow-set">
+          <h2 id="moscow-set">Set the MoSCoW</h2>
+          <p className="muted">The vote is advice. A person decides: nothing changes until you press the last button, a value that is set now is overwritten only for the initiatives you leave ticked, and Claude can never set it. You can undo it below until someone changes a value again.</p>
+          <MoscowApply sessionId={id} rows={moscowRows.rows} skipped={moscowRows.skipped} apply={applyMoscow} />
+          {moscowApplications.length > 0 && (
+            <>
+              <h3>Set before</h3>
+              <ul>
+                {moscowApplications.map((a) => (
+                  <li key={a.id}>
+                    {when(a.created_at)} by {a.created_by ? who.get(a.created_by) ?? "a member" : "the system"}: {a.changed} {a.changed === 1 ? "initiative" : "initiatives"} changed.{" "}
+                    <ul>
+                      {a.changes.map((c) => (
+                        <li key={c.item}><strong>{moscowNames.get(c.item) ?? "An initiative"}</strong>: {c.from ?? "not set"} → {c.to}{c.reason ? `. Reason: ${c.reason}` : ""}</li>
+                      ))}
+                    </ul>
+                    {a.undone_at ? <span className="muted">Undone {when(a.undone_at)}.</span> : (
+                      <form action={undoMoscow} className="inline-form">
+                        <input type="hidden" name="session" value={id} /><input type="hidden" name="application" value={a.id} />
+                        <button type="submit" className="btn btn-link">Undo this change</button>
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
       {suggestion && (
         <section aria-labelledby="suggested-order">
           <h2 id="suggested-order">Order for the Stack Rank</h2>

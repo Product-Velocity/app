@@ -9,7 +9,7 @@ export type CrowdRow = {
   itemId: string;
   sessionId: string;
   sessionName: string;
-  method: "top5_duels" | "coins" | "ice";
+  method: "top5_duels" | "coins" | "ice" | "moscow";
   closedAt: string;
   place: number;
   tied: boolean;

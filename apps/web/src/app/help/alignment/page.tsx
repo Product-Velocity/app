@@ -50,13 +50,14 @@ export default function AlignmentPage() {
       <HelpSection id="large" title="Large groups: alignment sessions">
         <p>An alignment session asks a chosen group of people to rank a set of initiatives. Participants need no account: each gets a personal link by email. You pick the method.</p>
         <HelpTable
-          caption="The three methods"
+          caption="The four methods"
           table={{
             head: ["Method", "How a person votes", "Best for"],
             rows: [
               ["Top 5, then duels", "Pick the five most important initiatives, then settle close calls in head-to-head duels", "Quick ranking from busy people"],
               ["100 coins", "Spend 100 coins across the initiatives, with a maximum per initiative", "Showing how strongly people feel, not only the order"],
               ["ICE sliders", "Score impact, confidence and ease for each initiative", "A structured score people can compare and explain"],
+              ["MoSCoW", "Choose Must, Should, Could or Won't for every initiative (no skipping)", "Agreeing what is in or out for a quarter. A tie goes to the more cautious choice; an admin sets the final MoSCoW"],
             ],
           }}
         />
@@ -81,6 +82,7 @@ export default function AlignmentPage() {
             "Each initiative shows its crowd result on the Alignment tab of the side panel: score, place, whether it is contested, and the session and date. The grid has the Crowd Rank, Crowd Score, Consensus and Votes columns.",
             "The session gives a suggested order. An admin can adjust it, record why the final order differs from the crowd's, and apply it to Stack Rank. Every application is audited and can be undone.",
             "The vote informs and leadership decides. Applying a result is a plain admin action; it does not replace a decision gate.",
+            "A MoSCoW vote works the same way, on the MoSCoW field instead of the Stack Rank. The results page suggests a value for each initiative (a tie goes to the more cautious choice), shows what each initiative has now, and an admin ticks the ones to set, changes a value if needed and gives a reason wherever it differs from the vote. A value that is set now is only overwritten for the initiatives left ticked, and the change can be undone while nothing has changed it since. Claude can never set it.",
           ]}
         />
         <HelpCallout title="People decide.">

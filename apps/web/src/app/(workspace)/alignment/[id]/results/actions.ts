@@ -6,6 +6,8 @@ import { requireWorkspace } from "@/lib/session";
 import { finalResults } from "@/lib/alignment-results";
 import { planApply } from "@/lib/alignment-rank";
 import { loadSuggestion } from "@/lib/alignment-rank-server";
+import { planMoscow } from "@/lib/alignment-moscow";
+import { loadMoscow } from "@/lib/alignment-moscow-server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -57,6 +59,55 @@ export async function undoVote(form: FormData): Promise<void> {
   const { supabase, active } = await requireWorkspace(base);
   if (active.role !== "admin") redirect(`${base}?status=not-allowed`);
   const { error } = await supabase.rpc("alignment_rank_undo", { p_application: application });
+  revalidatePath(base);
+  revalidatePath("/portfolio");
+  if (error) redirect(`${base}?status=${error.code === "PV025" ? "cannot-undo" : error.code === "PV004" || error.code === "42501" ? "not-allowed" : "failed"}`);
+  redirect(`${base}?status=undone`);
+}
+
+/**
+ * Sets the MoSCoW field from the vote of a closed MoSCoW session (issue #746), for the initiatives the admin ticked, with the value the admin chose
+ * (the vote's suggestion unless changed) and a reason wherever it differs from the suggestion. The changes are worked out here from the stored vote and
+ * today's values, never taken from the browser; the database checks again that nothing changed since the preview (PV025), that a reason is given (PV026)
+ * and that the person is an admin and not Claude or a service account (PV004). Only the MoSCoW field changes.
+ */
+export async function applyMoscow(form: FormData): Promise<void> {
+  const session = String(form.get("session"));
+  if (!UUID.test(session)) redirect("/alignment");
+  const base = `/alignment/${session}/results`;
+  const { supabase, active } = await requireWorkspace(base);
+  if (active.role !== "admin") redirect(`${base}?status=not-allowed`);
+  const { data: s } = await supabase.from("alignment_sessions").select("id, status, method").eq("tenant_id", active.tenantId).eq("id", session).maybeSingle();
+  if (!s || s.method !== "moscow" || (s.status !== "closed" && s.status !== "archived")) redirect(`${base}?status=not-allowed`);
+  const snap = await finalResults(session);
+  if (!snap) redirect(`${base}?status=failed`);
+  const selected = form.getAll("item").map(String).filter((x) => UUID.test(x));
+  let seen: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(String(form.get("seen") ?? "{}")) as unknown;
+    if (parsed && typeof parsed === "object") seen = parsed as Record<string, string>;
+  } catch { /* an unreadable value counts as "not seen": the plan then asks again */ }
+  const finals: Record<string, unknown> = {};
+  const reasons: Record<string, unknown> = {};
+  for (const id of selected) { finals[id] = form.get(`final_${id}`) ?? ""; reasons[id] = form.get(`reason_${id}`) ?? ""; }
+  const { rows } = await loadMoscow(supabase, active.tenantId, session, snap);
+  const plan = planMoscow(rows, selected, seen, finals, reasons);
+  if (!plan.ok) redirect(`${base}?status=${plan.reason}`);
+  const { error } = await supabase.rpc("alignment_moscow_apply", { p_session: session, p_changes: plan.changes, p_scope: plan.scope });
+  revalidatePath(base);
+  revalidatePath("/portfolio");
+  if (error) redirect(`${base}?status=${error.code === "PV025" ? "stale" : error.code === "PV026" ? "reason-needed" : error.code === "PV004" || error.code === "42501" ? "not-allowed" : "failed"}`);
+  redirect(`${base}?status=applied`);
+}
+
+/** Puts the MoSCoW values back as they were before an application, if nothing has changed them since (the database checks). */
+export async function undoMoscow(form: FormData): Promise<void> {
+  const session = String(form.get("session")), application = String(form.get("application"));
+  if (!UUID.test(session) || !UUID.test(application)) redirect("/alignment");
+  const base = `/alignment/${session}/results`;
+  const { supabase, active } = await requireWorkspace(base);
+  if (active.role !== "admin") redirect(`${base}?status=not-allowed`);
+  const { error } = await supabase.rpc("alignment_moscow_undo", { p_application: application });
   revalidatePath(base);
   revalidatePath("/portfolio");
   if (error) redirect(`${base}?status=${error.code === "PV025" ? "cannot-undo" : error.code === "PV004" || error.code === "42501" ? "not-allowed" : "failed"}`);

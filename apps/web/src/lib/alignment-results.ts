@@ -32,11 +32,11 @@ export async function computeResults(admin: Admin, sessionId: string): Promise<R
   const { data: items } = await admin.from("alignment_items").select("id, shown_name, position").eq("session_id", sessionId).order("position");
   const itemList = (items ?? []) as { id: string; shown_name: string | null }[];
   const ballots = await all<{ id: string; group_id: string }>((a, b) => admin.from("alignment_ballots").select("id, group_id").eq("session_id", sessionId).eq("state", "submitted").order("id").range(a, b) as never);
-  const votes = await all<{ ballot_id: string; alignment_item_id: string } & Vote>((a, b) => admin.from("alignment_votes").select("ballot_id, alignment_item_id, rank, coins, impact, confidence, ease").eq("session_id", sessionId).order("id").range(a, b) as never);
+  const votes = await all<{ ballot_id: string; alignment_item_id: string } & Vote>((a, b) => admin.from("alignment_votes").select("ballot_id, alignment_item_id, rank, coins, impact, confidence, ease, moscow").eq("session_id", sessionId).order("id").range(a, b) as never);
   const byBallot = new Map<string, Record<string, Vote>>();
   for (const v of votes) {
     const m = byBallot.get(v.ballot_id) ?? {};
-    m[v.alignment_item_id] = { rank: v.rank, coins: v.coins, impact: v.impact, confidence: v.confidence, ease: v.ease };
+    m[v.alignment_item_id] = { rank: v.rank, coins: v.coins, impact: v.impact, confidence: v.confidence, ease: v.ease, moscow: v.moscow };
     byBallot.set(v.ballot_id, m);
   }
   const inputs: BallotInput[] = ballots.map((b) => ({ group: b.group_id, votes: byBallot.get(b.id) ?? {} }));

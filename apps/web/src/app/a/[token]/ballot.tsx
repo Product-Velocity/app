@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  answersFor, coinsLeft, duelKey, duelPairs, duelsDone, ICE_DEFAULT, pickCount, rankingFromDuels, setCoins,
+  answersFor, coinsLeft, duelKey, duelPairs, duelsDone, ICE_DEFAULT, MOSCOW_CHOICES, pickCount, rankingFromDuels, setCoins,
   type BallotItem, type Method, type Progress,
 } from "@/lib/alignment-ballot";
 import { MarkdownPreview } from "@/features/portfolio/markdown-preview";
@@ -31,7 +31,7 @@ function ItemCard({ item, children, selected }: { item: BallotItem; children?: R
 }
 
 /**
- * The participant's ballot for all three methods, built for a 390 px phone: one decision per screen, large tap targets, progress saved after
+ * The participant's ballot for all four methods, built for a 390 px phone: one decision per screen, large tap targets, progress saved after
  * every change (a newer save always wins, so a reload or a slow network never loses or doubles an answer), and a vote that can be changed
  * until the session closes.
  */
@@ -112,6 +112,29 @@ export function Ballot({ api = { save: saveBallotProgress, submit: submitBallot 
             </ItemCard>
           );
         })}
+        {submitRow}
+      </div>
+    );
+  }
+
+  if (method === "moscow") {
+    const chosen = items.filter((i) => p.moscow?.[i.id]).length;
+    return (
+      <div className="stack ballot">
+        <div className="ballot-sticky" role="status" aria-live="polite"><strong>{chosen}</strong> of {items.length} chosen</div>
+        <p className="muted">Choose Must, Should, Could or Won&apos;t for every initiative. Every initiative needs a choice.</p>
+        {items.map((i) => (
+          <ItemCard key={i.id} item={i} selected={!!p.moscow?.[i.id]}>
+            <div className="ballot-choices" style={{ display: "flex", flexWrap: "wrap", gap: 8 }} role="group" aria-label={`MoSCoW for ${i.name}`}>
+              {MOSCOW_CHOICES.map((c) => (
+                <button key={c.value} type="button" className={p.moscow?.[i.id] === c.value ? "btn btn-primary ballot-big" : "btn ballot-big"} aria-pressed={p.moscow?.[i.id] === c.value} title={c.help} onClick={() => change({ ...p, moscow: { ...(p.moscow ?? {}), [i.id]: c.value } })}>
+                  {c.label}<span className="sr-only"> for {i.name}</span>
+                </button>
+              ))}
+            </div>
+            <p className="muted">{p.moscow?.[i.id] ? MOSCOW_CHOICES.find((c) => c.value === p.moscow![i.id])!.help : "Not chosen yet"}</p>
+          </ItemCard>
+        ))}
         {submitRow}
       </div>
     );

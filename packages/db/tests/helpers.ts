@@ -352,6 +352,9 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
       await db.admin.query("insert into public.alignment_rank_reasons (tenant_id, application_id, item_id, from_rank, to_rank, crowd_rank, reason) values ($1, $2, $3, 2, 1, 3, 'Seed reason')", [tenantId, app, items[0]]);
     }
   }
+  if ((await db.admin.query("select to_regclass('public.alignment_moscow_applications') as t")).rows[0].t) { // issue #746; older-schema tests seed before this table exists
+    await db.admin.query("insert into public.alignment_moscow_applications (tenant_id, session_id, scope, changes, changed) values ($1, $2, 'all', '[]', 1)", [tenantId, sess]);
+  }
   // a send-log row (positive control; the log holds no address, name, token or body)
   if ((await db.admin.query("select to_regclass('public.email_send_log') as t")).rows[0].t) {
     await db.admin.query("insert into public.email_send_log (template_key, tenant_id, status, provider_id) values ('app.invitation', $1, 'sent', $2)", [tenantId, `re_seed_${tenantId}`]);

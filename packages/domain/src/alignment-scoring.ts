@@ -7,9 +7,17 @@
  * - groups with fewer than 5 voters are never shown on their own: they are merged into "Other", shown only at 5 or more voters;
  *   when "Other" would stay under 5, no group is shown at all (it could be worked out by subtraction), only the joint result
  * - items with the same score share a place and are shown as tied; an initiative the groups disagree about is marked contested
+ * - MoSCoW (issue #746): a person's value is Must 3, Should 2, Could 1, Won't 0, so the usual score and places work; on top of that each
+ *   initiative gets a suggested MoSCoW from the share of each choice (weighted like the joint score). The most chosen bucket wins; a tie goes
+ *   to the more cautious one (the lower commitment: Must/Should becomes Should, Should/Could becomes Could, Could/Won't becomes Won't) and is
+ *   flagged. An initiative is also contested when someone chose Must and someone chose Won't. A person only suggests; an admin sets the field.
  */
-export type ScoringMethod = "top5_duels" | "coins" | "ice";
-export type Vote = { rank?: number | null; coins?: number | null; impact?: number | null; confidence?: number | null; ease?: number | null };
+export type ScoringMethod = "top5_duels" | "coins" | "ice" | "moscow";
+export type Moscow = "must" | "should" | "could" | "wont";
+export const MOSCOW_ORDER: Moscow[] = ["must", "should", "could", "wont"];
+export const MOSCOW_LABEL: Record<Moscow, string> = { must: "Must", should: "Should", could: "Could", wont: "Won't" };
+const MOSCOW_VALUE: Record<Moscow, number> = { must: 3, should: 2, could: 1, wont: 0 };
+export type Vote = { rank?: number | null; coins?: number | null; impact?: number | null; confidence?: number | null; ease?: number | null; moscow?: Moscow | null };
 export type BallotInput = { group: string; votes: Record<string, Vote | undefined> };
 export type GroupDef = { id: string; name: string };
 
@@ -29,8 +37,20 @@ export type ScoringInput = {
 export type Placed = { itemId: string; score: number; place: number; tied: boolean };
 export type GroupResult = { id: string; name: string; voters: number; scores: Placed[] };
 export type Contested = { itemId: string; spread: number; highGroup: string; lowGroup: string };
+/** MoSCoW outcome for one initiative. counts are people; shares are percent, weighted like the joint score and adding up to 100. */
+export type MoscowResult = {
+  itemId: string;
+  counts: Record<Moscow, number>;
+  shares: Record<Moscow, number>;
+  suggested: Moscow;
+  /** The top buckets were level and the more cautious one was taken, or someone chose Must and someone chose Won't. */
+  contested: boolean;
+  tied: boolean;
+};
 export type Results = {
   voters: number;
+  /** Only for the MoSCoW method. */
+  moscow?: MoscowResult[];
   joint: Placed[];
   /** Per-group results that are safe to show, or null with the reason in `groupsNote`. */
   groups: GroupResult[] | null;
@@ -43,6 +63,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 /** What one person's answer is worth for one initiative. */
 export function voteValue(method: ScoringMethod, v: Vote | undefined, picks: number): number {
   if (!v) return 0;
+  if (method === "moscow") return v.moscow ? MOSCOW_VALUE[v.moscow] : 0;
   if (method === "coins") return Math.max(0, v.coins ?? 0);
   if (method === "top5_duels") return v.rank ? Math.max(0, picks - v.rank + 1) : 0;
   return (v.impact ?? 0) * (v.confidence ?? 0) * (v.ease ?? 0);
@@ -68,6 +89,34 @@ function groupScores(input: Pick<ScoringInput, "method" | "itemIds">, ballots: B
   if (ballots.length === 0) return input.itemIds.map(() => 0);
   const means = input.itemIds.map((id) => ballots.reduce((n, b) => n + voteValue(input.method, b.votes[id], picks), 0) / ballots.length);
   return toHundred(means);
+}
+
+/** Suggested MoSCoW per initiative. Groups the admin left out do not count; groups weigh equally or by headcount, as in the joint score. */
+export function moscowResults(input: Pick<ScoringInput, "itemIds" | "ballots" | "weighting" | "excluded">): MoscowResult[] {
+  const byGroup = new Map<string, BallotInput[]>();
+  for (const b of input.ballots) byGroup.set(b.group, [...(byGroup.get(b.group) ?? []), b]);
+  const counted = [...byGroup.entries()].filter(([g]) => !input.excluded.includes(g));
+  const weightSum = counted.reduce((n, [, bs]) => n + (input.weighting === "headcount" ? bs.length : 1), 0);
+  return input.itemIds.map((itemId) => {
+    const counts: Record<Moscow, number> = { must: 0, should: 0, could: 0, wont: 0 };
+    const raw: Record<Moscow, number> = { must: 0, should: 0, could: 0, wont: 0 };
+    for (const [, bs] of counted) {
+      const w = input.weighting === "headcount" ? bs.length : 1;
+      let given = 0;
+      for (const b of bs) { const m = b.votes[itemId]?.moscow; if (m) { counts[m]++; given++; } }
+      if (given > 0) for (const m of MOSCOW_ORDER) {
+        const n = bs.filter((b) => b.votes[itemId]?.moscow === m).length;
+        raw[m] += (n / given) * (w / weightSum) * 100;
+      }
+    }
+    const shares = Object.fromEntries(MOSCOW_ORDER.map((m) => [m, r2(raw[m])])) as Record<Moscow, number>;
+    const top = Math.max(...MOSCOW_ORDER.map((m) => shares[m]));
+    const level = MOSCOW_ORDER.filter((m) => shares[m] === top);
+    // cautious: the lowest commitment among the level buckets (the last in Must, Should, Could, Won't order)
+    const suggested = level[level.length - 1]!;
+    const tied = top > 0 && level.length > 1;
+    return { itemId, counts, shares, suggested, tied, contested: tied || (counts.must > 0 && counts.wont > 0) };
+  });
 }
 
 export function scoreSession(input: ScoringInput): Results {
@@ -116,5 +165,6 @@ export function scoreSession(input: ScoringInput): Results {
     }
     contested.sort((a, b) => b.spread - a.spread);
   }
-  return { voters: input.ballots.length, joint: placedJoint, groups, groupsNote, contested };
+  const moscow = input.method === "moscow" ? moscowResults(input) : undefined;
+  return { voters: input.ballots.length, joint: placedJoint, groups, groupsNote, contested, ...(moscow ? { moscow } : {}) };
 }

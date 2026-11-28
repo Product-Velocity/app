@@ -22,7 +22,7 @@ export type SessionStats = {
 export type SessionRow = {
   id: string;
   name: string;
-  method: "top5_duels" | "coins" | "ice";
+  method: "top5_duels" | "coins" | "ice" | "moscow";
   status: SessionState;
   createdAt: string;
   openedAt: string | null;

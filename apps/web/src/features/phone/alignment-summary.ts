@@ -15,7 +15,7 @@ export type SessionSummary = {
 };
 
 export const TOP_N = 5;
-const METHOD: Record<string, string> = { top5_duels: "Top 5 and duels", coins: "100 coins", ice: "Impact, confidence, ease" };
+const METHOD: Record<string, string> = { top5_duels: "Top 5 and duels", coins: "100 coins", ice: "Impact, confidence, ease", moscow: "MoSCoW" };
 export const methodLabel = (m: string) => METHOD[m] ?? m.replace(/_/g, " ");
 
 /** Closed and archived sessions have their results copy; an open one has none yet (an admin opens its provisional results on the results page). */

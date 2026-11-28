@@ -1,7 +1,14 @@
 /** Pure rules of the participant ballot (issue #125): what is asked, what counts as complete, and how duels become an order. */
 
 export type BallotItem = { id: string; name: string; summary: string | null; value: string | null };
-export type Method = "top5_duels" | "coins" | "ice";
+export type Method = "top5_duels" | "coins" | "ice" | "moscow";
+export type MoscowChoice = "must" | "should" | "could" | "wont";
+export const MOSCOW_CHOICES: { value: MoscowChoice; label: string; help: string }[] = [
+  { value: "must", label: "Must", help: "We cannot succeed this quarter without it" },
+  { value: "should", label: "Should", help: "Important, but not fatal to leave out" },
+  { value: "could", label: "Could", help: "Nice to have if there is room" },
+  { value: "wont", label: "Won't", help: "Not this quarter" },
+];
 export type Ice = { impact: number; confidence: number; ease: number };
 
 /** Saved progress of a ballot. Only the fields of the session's method are used. */
@@ -12,6 +19,7 @@ export type Progress = {
   step?: "pick" | "duels" | "review";
   coins?: Record<string, number>;
   ice?: Record<string, Ice>;
+  moscow?: Record<string, MoscowChoice>;
 };
 
 /** How many initiatives a person picks for the top list: five, or all of them when there are fewer. */
@@ -64,6 +72,11 @@ export function answersFor(method: Method, items: BallotItem[], p: Progress, s: 
     if (left !== 0) return { ok: false, reason: left > 0 ? `Spend your last ${left} coins.` : "You spent too many coins." };
     return { ok: true, answers: { coins: Object.fromEntries(items.map((i) => [i.id, p.coins?.[i.id] ?? 0])) } };
   }
+  if (method === "moscow") {
+    const missing = items.filter((i) => !p.moscow?.[i.id]).length;
+    if (missing > 0) return { ok: false, reason: `Choose for ${missing} more ${missing === 1 ? "initiative" : "initiatives"}.` };
+    return { ok: true, answers: { moscow: Object.fromEntries(items.map((i) => [i.id, p.moscow![i.id]])) } };
+  }
   const missing = items.filter((i) => !p.ice?.[i.id]).length;
   if (missing > 0) return { ok: false, reason: `Score ${missing} more ${missing === 1 ? "initiative" : "initiatives"}.` };
   return { ok: true, answers: { ice: Object.fromEntries(items.map((i) => [i.id, p.ice![i.id]])) } };
@@ -80,6 +93,10 @@ export function cleanProgress(raw: unknown, items: BallotItem[]): Progress {
   }
   if (r.step === "pick" || r.step === "duels" || r.step === "review") out.step = r.step;
   if (r.coins && typeof r.coins === "object") out.coins = Object.fromEntries(Object.entries(r.coins as Record<string, unknown>).filter(([k, v]) => ids.has(k) && typeof v === "number" && v >= 0).map(([k, v]) => [k, v as number]));
+  if (r.moscow && typeof r.moscow === "object") {
+    const ok = new Set<string>(MOSCOW_CHOICES.map((c) => c.value));
+    out.moscow = Object.fromEntries(Object.entries(r.moscow as Record<string, unknown>).filter(([k, v]) => ids.has(k) && typeof v === "string" && ok.has(v))) as Record<string, MoscowChoice>;
+  }
   if (r.ice && typeof r.ice === "object") {
     const ok = (n: unknown) => typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 10;
     out.ice = Object.fromEntries(Object.entries(r.ice as Record<string, Ice>).filter(([k, v]) => ids.has(k) && v && ok(v.impact) && ok(v.confidence) && ok(v.ease)));
