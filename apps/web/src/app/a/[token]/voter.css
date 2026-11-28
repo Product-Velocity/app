@@ -32,7 +32,9 @@
 .voter .btn-primary:hover { background: var(--brand-strong); border-color: var(--brand-strong); }
 .voter .btn[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
 .voter .btn:disabled { background: var(--surface-muted); border-color: var(--border); color: var(--ink-subtle); cursor: not-allowed; }
-.voter .ballot-big { min-height: 48px; }
+/* the big choice and step buttons: bold words and a stronger outline, the same on every method */
+.voter .ballot-big { min-height: 52px; border-width: 2px; font-weight: 700; }
+.voter .ballot-big:disabled { border-width: 2px; }
 .voter input[type="number"] { min-height: 44px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); color: var(--ink); font: inherit; text-align: center; }
 .voter .notice { padding: 12px 16px; border-radius: var(--radius-md); background: var(--brand-tint); border: 1px solid var(--brand-tint); color: var(--ink); }
 .voter .notice p { margin: 0 0 6px; }
@@ -48,9 +50,15 @@
 /* selection is shown by the capsule and a filled button with its words, never by colour alone (brand guide, pill motif) */
 .voter .ballot-card.selected { border-color: var(--brand); background: var(--brand-tint); }
 .voter .ballot-card.selected::before { content: ""; position: absolute; left: 8px; top: 18px; width: 4px; height: 16px; border-radius: var(--radius-pill); background: var(--brand); }
-.voter .ballot-stepper { display: flex; align-items: center; gap: 8px; }
+/* the coin card matches the MoSCoW card: big bold buttons, a strong outline, the brand shading once coins are on it, and a bar that shows how near the maximum it is */
+.voter .ballot-stepper { display: grid; grid-template-columns: 1fr minmax(96px, 1.3fr) 1fr; align-items: stretch; gap: 8px; }
+.voter .ballot-stepper .btn { font-size: 20px; font-weight: 700; }
+.voter .ballot-meter { height: 8px; border-radius: var(--radius-pill); background: var(--surface-muted); border: 1px solid var(--border); overflow: hidden; }
+.voter .ballot-meter > span { display: block; height: 100%; background: var(--brand); border-radius: var(--radius-pill); }
+.voter .ballot-card.selected .ballot-meter { background: var(--bg); }
 /* the app styles every input at width 100% with a three-part selector, so this one is as specific */
-.voter .ballot-stepper input[type="number"][inputmode="numeric"] { width: 96px; flex: none; }
+.voter .ballot-stepper input[type="number"][inputmode="numeric"] { width: 100%; min-height: 52px; border-width: 2px; font: 700 24px/1 var(--font-sans, "IBM Plex Sans", system-ui, sans-serif); }
+.voter .ballot-card.selected .ballot-stepper input[type="number"][inputmode="numeric"] { border-color: var(--brand); color: var(--brand-strong); }
 .voter .ballot-slider { display: grid; gap: 4px; }
 .voter .ballot-slider input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--brand); }
 .voter .ballot-choices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
