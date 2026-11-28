@@ -1,18 +1,18 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { deleteProject, renameProject, type ProjectState } from "./actions";
+import { deleteProject, renameProject, setProjectAlignmentDefaults, type ProjectState } from "./actions";
 import { deleteWarning, nameMatches } from "@/lib/projects/manage";
 
 // Rename and delete a project (issue #526), on Settings, Workspace. Admins only. Deleting asks for the project's name and names what will go.
-export type ProjectRow = { id: string; name: string; tracker: "jira" | "github" | null; live: number; trashed: number };
+export type ProjectRow = { id: string; name: string; tracker: "jira" | "github" | null; live: number; trashed: number; coinsTotal: number; coinsMax: number };
 
 export function ProjectsCard({ projects, canEdit }: { projects: ProjectRow[]; canEdit: boolean }) {
   return (
     <section className="card stack" aria-labelledby="projects-title" id="projects">
       <h2 id="projects-title">Projects</h2>
       <p className="muted">
-        Rename a project, or delete it with everything in it. {canEdit ? "" : "Only admins can change projects."} New projects are added on the Portfolio page.
+        Rename a project, set the coins its votes start with, or delete it with everything in it. {canEdit ? "" : "Only admins can change projects."} New projects are added on the Portfolio page.
       </p>
       {projects.length === 0 ? <p className="muted">No projects yet.</p> : (
         <ul className="stack" style={{ listStyle: "none", padding: 0 }}>
@@ -26,6 +26,7 @@ export function ProjectsCard({ projects, canEdit }: { projects: ProjectRow[]; ca
 function ProjectItem({ project, canEdit }: { project: ProjectRow; canEdit: boolean }) {
   const [renameState, renameAction, renaming] = useActionState<ProjectState, FormData>(renameProject, null);
   const [deleteState, deleteAction, deleting] = useActionState<ProjectState, FormData>(deleteProject, null);
+  const [coinsState, coinsAction, savingCoins] = useActionState<ProjectState, FormData>(setProjectAlignmentDefaults, null);
   const [mode, setMode] = useState<"none" | "rename" | "delete">("none");
   const [typed, setTyped] = useState("");
   const warning = deleteWarning({ name: project.name, live: project.live, trashed: project.trashed, tracker: project.tracker });
@@ -43,6 +44,22 @@ function ProjectItem({ project, canEdit }: { project: ProjectRow; canEdit: boole
           </>
         )}
       </div>
+      {canEdit && (
+        <form action={coinsAction} className="row-form" aria-label={`Coins in a vote for ${project.name}`}>
+          <input type="hidden" name="project" value={project.id} />
+          <div className="field">
+            <label htmlFor={`ct-${project.id}`}>Coins per voter</label>
+            <input id={`ct-${project.id}`} name="coins_total" type="number" min={10} max={1000} defaultValue={project.coinsTotal} required />
+          </div>
+          <div className="field">
+            <label htmlFor={`cm-${project.id}`}>Most on one initiative</label>
+            <input id={`cm-${project.id}`} name="coins_max" type="number" min={1} max={1000} defaultValue={project.coinsMax} required />
+          </div>
+          <button className="btn" type="submit" disabled={savingCoins}>Save coins</button>
+        </form>
+      )}
+      {coinsState?.ok && coinsState.project === project.id && <p role="status" className="notice">{coinsState.ok}</p>}
+      {coinsState?.error && coinsState.project === project.id && <p role="alert" className="error">{coinsState.error}</p>}
       {renameState?.ok && renameState.project === project.id && <p role="status" className="notice">{renameState.ok}</p>}
       {renameState?.error && renameState.project === project.id && <p role="alert" className="error">{renameState.error}</p>}
       {mode === "rename" && canEdit && (

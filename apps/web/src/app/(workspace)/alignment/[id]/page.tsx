@@ -1,3 +1,4 @@
+import { cardRows } from "@/lib/voter-card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MarkdownPreview } from "@/features/portfolio/markdown-preview";
@@ -25,14 +26,17 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
   await supabase.rpc("alignment_close_due", { p_tenant: active.tenantId });
   const { data: s } = await supabase.from("alignment_sessions").select("*").eq("tenant_id", active.tenantId).eq("id", id).maybeSingle();
   if (!s) notFound();
-  const { data: itemRows } = await supabase.from("alignment_items").select("item_id, position, shown_name, shown_summary, shown_value_proposition, snapshot_at").eq("tenant_id", active.tenantId).eq("session_id", id).order("position");
-  const items = (itemRows ?? []) as { item_id: string | null; position: number; shown_name: string | null; shown_summary: string | null; shown_value_proposition: string | null; snapshot_at: string | null }[];
+  const { data: itemRows } = await supabase.from("alignment_items").select("item_id, position, shown_name, shown_summary, shown_value_proposition, shown_business_line, shown_business_value, shown_effort, snapshot_at").eq("tenant_id", active.tenantId).eq("session_id", id).order("position");
+  const items = (itemRows ?? []) as { item_id: string | null; position: number; shown_name: string | null; shown_summary: string | null; shown_value_proposition: string | null; shown_business_line: string | null; shown_business_value: number | string | null; shown_effort: string | null; snapshot_at: string | null }[];
+  const { data: tenantRow } = await supabase.from("tenants").select("currency").eq("id", active.tenantId).maybeSingle();
+  const currency = (tenantRow as { currency: string | null } | null)?.currency ?? null;
+  const voterFields = ((s.voter_fields as string[] | null) ?? []);
   // before the session opens the preview reads the initiatives live (customer-safe fields only); after, it shows the frozen snapshot
-  let shown = items.map((i) => ({ name: i.shown_name, summary: i.shown_summary, value: i.shown_value_proposition, id: i.item_id }));
+  let shown = items.map((i) => ({ name: i.shown_name, summary: i.shown_summary, value: i.shown_value_proposition, id: i.item_id, more: cardRows({ businessLine: i.shown_business_line, businessValue: i.shown_business_value, effort: i.shown_effort }, currency) }));
   if (s.status === "draft" && items.length > 0) {
-    const { data: live } = await supabase.from("items").select("id, initiative_name, summary, value_proposition").eq("tenant_id", active.tenantId).in("id", items.map((i) => i.item_id).filter((x): x is string => !!x));
-    const by = new Map(((live ?? []) as { id: string; initiative_name: string; summary: string | null; value_proposition: string | null }[]).map((r) => [r.id, r]));
-    shown = items.map((i) => { const r = i.item_id ? by.get(i.item_id) : undefined; return { id: i.item_id, name: r?.initiative_name ?? null, summary: r?.summary ?? null, value: r?.value_proposition ?? null }; });
+    const { data: live } = await supabase.from("items").select("id, initiative_name, summary, value_proposition, business_line, value_12m, effort").eq("tenant_id", active.tenantId).in("id", items.map((i) => i.item_id).filter((x): x is string => !!x));
+    const by = new Map(((live ?? []) as { id: string; initiative_name: string; summary: string | null; value_proposition: string | null; business_line: string | null; value_12m: number | string | null; effort: string | null }[]).map((r) => [r.id, r]));
+    shown = items.map((i) => { const r = i.item_id ? by.get(i.item_id) : undefined; return { id: i.item_id, name: r?.initiative_name ?? null, summary: r?.summary ?? null, value: r?.value_proposition ?? null, more: cardRows({ businessLine: voterFields.includes("business_line") ? r?.business_line ?? null : null, businessValue: voterFields.includes("business_value") ? r?.value_12m ?? null : null, effort: voterFields.includes("effort") ? r?.effort ?? null : null }, currency) }; });
   }
   const state = s.status as SessionState;
   const method = METHODS.find((m) => m.value === s.method)!;
@@ -69,7 +73,7 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
         {state !== "draft" && <p className="muted">The settings of a session that has opened are locked. Make a new session to change them.</p>}
         <SettingsForm
           locked={state !== "draft" || !isAdmin}
-          session={{ id: s.id, name: s.name, method: s.method, groups, weighting: s.weighting, excluded: s.excluded_groups, coinsTotal: s.coins_total, coinsMax: s.coins_max_per_item, showResults: s.show_results, retention: s.retention_months, closesAt: s.closes_at }}
+          session={{ id: s.id, name: s.name, method: s.method, groups, weighting: s.weighting, excluded: s.excluded_groups, coinsTotal: s.coins_total, coinsMax: s.coins_max_per_item, showResults: s.show_results, retention: s.retention_months, closesAt: s.closes_at, voterFields: (s.voter_fields as string[] | null) ?? [] }}
         />
       </div>
 
@@ -77,7 +81,7 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
 
       <h2>Preview as a participant</h2>
       <div className="card stack" aria-label="Participant preview">
-        <p className="muted">This is what a participant sees. {state === "draft" ? "It reads the initiatives as they are now; opening the session fixes it." : "It shows the fixed copy taken when the session opened."} Commercial fields are never shown.</p>
+        <p className="muted">This is what a participant sees. {state === "draft" ? "It reads the initiatives as they are now; opening the session fixes it." : "It shows the fixed copy taken when the session opened."} Only the card fields ticked in the settings are shown, and the Business Value is a commercial number.</p>
         <div className="notice">
           <p><strong>Before you start</strong></p>
           <ul>{CONSENT_LINES.map((l) => <li key={l}>{l}</li>)}<li>Your personal data is kept for {s.retention_months} months after the session closes.</li></ul>
@@ -89,6 +93,12 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
               <strong>{i.name ?? "Initiative"}</strong>
               {i.summary && <MarkdownPreview text={i.summary} />}
               {i.value && <p className="muted">{i.value}</p>}
+              {i.more.length > 0 && (
+                <details className="ballot-more">
+                  <summary>More about this initiative</summary>
+                  <dl>{i.more.map((r) => <div key={r.label}><dt>{r.label}</dt><dd>{r.value}</dd></div>)}</dl>
+                </details>
+              )}
             </li>
           ))}
         </ol>

@@ -47,6 +47,24 @@ export async function renameProject(_prev: ProjectState, form: FormData): Promis
 }
 
 /**
+ * The coins a new alignment vote starts with for this project (issue #746): the total per person and the most on one initiative. A new session takes them
+ * when all its initiatives belong to this project; a session already open keeps its own. A human admin only: the database function refuses everyone else.
+ */
+export async function setProjectAlignmentDefaults(_prev: ProjectState, form: FormData): Promise<ProjectState> {
+  const { supabase, active } = await requireWorkspace("/settings/workspace");
+  const project = String(form.get("project") ?? "");
+  if (active.role !== "admin" || active.platform) return { error: "Only admins can change a project.", project };
+  if (!UUID.test(project)) return { error: "Choose a project.", project };
+  const total = Number(form.get("coins_total")), max = Number(form.get("coins_max"));
+  if (!Number.isInteger(total) || total < 10 || total > 1000) return { error: "Coins per person must be a whole number from 10 to 1000.", project };
+  if (!Number.isInteger(max) || max < 1 || max > total) return { error: "The most on one initiative must be at least 1 and no more than the coins per person.", project };
+  const { error } = await supabase.rpc("project_alignment_defaults_set", { p_project: project, p_total: total, p_max: max });
+  if (error) return { error: error.code === "42501" ? "Only admins can change a project." : "We could not save the coins.", project };
+  revalidatePath("/settings/workspace");
+  return { ok: "Saved. New votes for this project start with these coins.", project };
+}
+
+/**
  * Deletes a project with its initiatives and all their data (issue #526), after the typed name matches. The database follows the deletion process
  * (Trash, then deleted for good, then the project) in one transaction; the bytes of the files are removed from storage afterwards. Jira and GitHub are never written.
  */

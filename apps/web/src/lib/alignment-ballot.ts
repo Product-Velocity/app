@@ -1,6 +1,6 @@
 /** Pure rules of the participant ballot (issue #125): what is asked, what counts as complete, and how duels become an order. */
 
-export type BallotItem = { id: string; name: string; summary: string | null; value: string | null };
+export type BallotItem = { id: string; name: string; summary: string | null; value: string | null; /** The rows of the card a voter can open (Business Line, Business Value, Effort); only what the admin left ticked. */ more?: { label: string; value: string }[] };
 export type Method = "top5_duels" | "coins" | "ice" | "moscow";
 export type MoscowChoice = "must" | "should" | "could" | "wont";
 export const MOSCOW_CHOICES: { value: MoscowChoice; label: string; help: string }[] = [

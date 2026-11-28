@@ -2229,3 +2229,12 @@ a.tool-btn { text-decoration: none; display: inline-flex; align-items: center; c
 .space-picker-on { background: #e6efff; }
 .space-picker-note { padding: 6px 8px; }
 .import-excerpt { max-height: 220px; overflow: auto; margin: 0; padding: 8px 10px; background: var(--grey-3, #f3f4f7); border: 1px solid var(--border-strong, #d5dae3); border-radius: 6px; white-space: pre-wrap; word-break: break-word; font: 12px/1.45 var(--font-mono, ui-monospace, monospace); }
+
+/* The card a voter can open under "More" (issue #746, slice 3): closed until opened; the voting screens get their full look in issue #749. */
+.ballot-more { margin: 8px 0 0; }
+.ballot-more > summary { cursor: pointer; color: var(--brand-strong); font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.ballot-more > summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.ballot-more dl { margin: 4px 0 0; display: grid; gap: 6px; }
+.ballot-more dl > div { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); padding-top: 6px; }
+.ballot-more dt { color: var(--ink-muted); }
+.ballot-more dd { margin: 0; font-weight: 600; }

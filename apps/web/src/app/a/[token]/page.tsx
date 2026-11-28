@@ -3,6 +3,7 @@ import { resolveLink, sameBrowser } from "@/lib/alignment-link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { finalResults } from "@/lib/alignment-results";
 import { cleanProgress, type BallotItem, type Method } from "@/lib/alignment-ballot";
+import { cardRows } from "@/lib/voter-card";
 import { Ballot } from "./ballot";
 import { LinkButton } from "./join-form";
 
@@ -57,10 +58,10 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
     const admin = createAdminClient({ via: "system" });
     const { data: ballot } = await admin.rpc("alignment_ballot_get", { p_participant: p.id });
     const bid = (ballot as { ballot_id: string }[] | null)?.[0]?.ballot_id;
-    const { data: mineRows } = bid ? await admin.from("alignment_votes").select("alignment_item_id, rank, coins, impact, confidence, ease").eq("ballot_id", bid) : { data: [] };
-    const mine = new Map(((mineRows ?? []) as { alignment_item_id: string; rank: number | null; coins: number | null; impact: number | null; confidence: number | null; ease: number | null }[]).map((v) => [v.alignment_item_id, v]));
+    const { data: mineRows } = bid ? await admin.from("alignment_votes").select("alignment_item_id, rank, coins, impact, confidence, ease, moscow").eq("ballot_id", bid) : { data: [] };
+    const mine = new Map(((mineRows ?? []) as { alignment_item_id: string; rank: number | null; coins: number | null; impact: number | null; confidence: number | null; ease: number | null; moscow: string | null }[]).map((v) => [v.alignment_item_id, v]));
     const names = new Map(snap.items.map((i) => [i.id, i.name]));
-    const yours = (id: string) => { const v = mine.get(id); if (!v) return ""; if (v.rank) return `Your place: ${v.rank}`; if (v.coins) return `Your coins: ${v.coins}`; return v.impact ? `Your scores: ${v.impact} / ${v.confidence} / ${v.ease}` : ""; };
+    const yours = (id: string) => { const v = mine.get(id); if (!v) return ""; if (v.moscow) return `Your choice: ${v.moscow === "wont" ? "Won't" : v.moscow[0]!.toUpperCase() + v.moscow.slice(1)}`; if (v.rank) return `Your place: ${v.rank}`; if (v.coins) return `Your coins: ${v.coins}`; return v.impact ? `Your scores: ${v.impact} / ${v.confidence} / ${v.ease}` : ""; };
     return (
       <main className="auth-page">
         <div className="card auth-card stack ballot-shell">
@@ -109,8 +110,14 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
   }
 
   const admin = createAdminClient({ via: "system" });
-  const { data: rows } = await admin.from("alignment_items").select("id, shown_name, shown_summary, shown_value_proposition").eq("session_id", s.id).order("position");
-  const items: BallotItem[] = ((rows ?? []) as { id: string; shown_name: string | null; shown_summary: string | null; shown_value_proposition: string | null }[]).map((r) => ({ id: r.id, name: r.shown_name ?? "Initiative", summary: r.shown_summary, value: r.shown_value_proposition }));
+  const { data: rows } = await admin.from("alignment_items").select("id, shown_name, shown_summary, shown_value_proposition, shown_business_line, shown_business_value, shown_effort").eq("session_id", s.id).order("position");
+  const { data: tenant } = await admin.from("tenants").select("currency").eq("id", p.tenant_id).maybeSingle();
+  const currency = (tenant as { currency: string | null } | null)?.currency ?? null;
+  type Shown = { id: string; shown_name: string | null; shown_summary: string | null; shown_value_proposition: string | null; shown_business_line: string | null; shown_business_value: number | string | null; shown_effort: string | null };
+  const items: BallotItem[] = ((rows ?? []) as Shown[]).map((r) => ({
+    id: r.id, name: r.shown_name ?? "Initiative", summary: r.shown_summary, value: r.shown_value_proposition,
+    more: cardRows({ businessLine: r.shown_business_line, businessValue: r.shown_business_value, effort: r.shown_effort }, currency),
+  }));
   const { data: ballot } = await admin.rpc("alignment_ballot_get", { p_participant: p.id });
   const b = (ballot as { state: string; progress: unknown; revision: number }[] | null)?.[0];
   const method = METHODS.find((m) => m.value === s.method)!;
