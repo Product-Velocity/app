@@ -7,9 +7,9 @@ export default function ProjectsHarness() {
   return (
     <div className="page-narrow">
       <ProjectsCard canEdit projects={[
-        { id: "11111111-1111-4111-8111-111111111111", name: "JIRA test", tracker: "jira", live: 4, trashed: 2 },
-        { id: "22222222-2222-4222-8222-222222222222", name: "R89 Roadmap", tracker: null, live: 0, trashed: 0 },
-        { id: "33333333-3333-4333-8333-333333333333", name: "Platform", tracker: "github", live: 1, trashed: 0 },
+        { id: "11111111-1111-4111-8111-111111111111", name: "JIRA test", tracker: "jira", live: 4, trashed: 2, coinsTotal: 100, coinsMax: 30 },
+        { id: "22222222-2222-4222-8222-222222222222", name: "R89 Roadmap", tracker: null, live: 0, trashed: 0, coinsTotal: 100, coinsMax: 30 },
+        { id: "33333333-3333-4333-8333-333333333333", name: "Platform", tracker: "github", live: 1, trashed: 0, coinsTotal: 100, coinsMax: 30 },
       ]} />
     </div>
   );

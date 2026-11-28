@@ -1,5 +1,6 @@
 "use server";
 
+import { cleanVoterFields } from "@/lib/voter-card";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { METHODS, NEXT_STATE, validateSettings, type SessionState } from "@/lib/alignment";
@@ -23,6 +24,8 @@ export async function createAlignmentSession(ids: string[], name: string, method
   if (!METHODS.some((m) => m.value === method)) return { ok: false, error: "Choose a method." };
   const { data, error } = await supabase.rpc("alignment_session_create", { p_name: clean, p_method: method, p_item_ids: ids });
   if (error || !data) return { ok: false, error: error?.code === "22023" ? error.message : "We could not create the session." };
+  // the coin defaults of the project the initiatives belong to, when they all belong to one (the admin can still change them on the draft)
+  await supabase.rpc("alignment_session_use_project_defaults", { p_id: data as string });
   revalidatePath(PATH);
   return { ok: true, id: data as string };
 }
@@ -42,6 +45,11 @@ export async function saveSettings(_prev: FormState, form: FormData): Promise<Fo
     p_show_results: s.showResults, p_retention: s.retentionMonths, p_closes_at: s.closesAt,
   });
   if (error) return { error: error.code === "PV009" ? "The settings of an open session are locked. Make a new session instead." : "We could not save the settings." };
+  // which card fields voters can open (only when the form carries the choice, so an older form never clears it)
+  if (form.get("voter_fields_present") === "1") {
+    const { error: vf } = await supabase.rpc("alignment_session_set_voter_fields", { p_id: id, p_fields: cleanVoterFields(form.getAll("voter_fields")) });
+    if (vf) return { error: vf.code === "PV009" ? "The settings of an open session are locked. Make a new session instead." : "We could not save the card fields." };
+  }
   revalidatePath(`${PATH}/${id}`);
   return { ok: "Saved." };
 }

@@ -13,3 +13,5 @@ Answers from Ashu, 2026-11-28 (full text in issue #750): branding is for paid pl
 Update 2026-11-28: Ashu chose (b): remove the voter consent step. Recorded with its consequences in `docs/decisions/2026-11-28-voter-consent-optional.md` (names path moves to an admin acknowledgement at setup; built as a per-session setting, default on, off for Ashu's company; rule 7 and `docs/19` amended when built). Part of slice 2 of #750.
 
 Follow-up 2026-11-28: Ashu: the consent setting is **off by default**, and admins can turn it on. The setup acknowledgement is an optional tick that only unlocks the Creators' names path.
+
+Added 2026-11-28 (Ashu asked whether the MCP and the skills cover the brand): they did not. The scope is now in the issue comment on #750: a `get_brand` read tool, brand proposals through `update_company_profile` and the `pv-company` / new `pv-brand` prompts (an admin confirms), report skills with `--format=slides|document` applying the brand and the workspace's template file, the honest limit that an assistant may ignore it, Help pages updated in the same PR.

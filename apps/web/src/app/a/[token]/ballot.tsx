@@ -25,6 +25,14 @@ function ItemCard({ item, children, selected }: { item: BallotItem; children?: R
       <strong>{item.name}</strong>
       {item.summary && <MarkdownPreview text={item.summary} />}
       {item.value && <p className="muted">{item.value}</p>}
+      {item.more && item.more.length > 0 && (
+        <details className="ballot-more">
+          <summary>More about this initiative</summary>
+          <dl>
+            {item.more.map((r) => <div key={r.label}><dt>{r.label}</dt><dd>{r.value}</dd></div>)}
+          </dl>
+        </details>
+      )}
       {children}
     </div>
   );

@@ -1,10 +1,11 @@
 "use client";
 
+import { VOTER_FIELDS } from "@/lib/voter-card";
 import { useActionState, useState } from "react";
 import { METHODS, groupsToText, type Group } from "@/lib/alignment";
 import { saveSettings, type FormState } from "../actions";
 
-type Session = { id: string; name: string; method: string; groups: Group[]; weighting: string; excluded: string[]; coinsTotal: number; coinsMax: number; showResults: boolean; retention: number; closesAt: string | null };
+type Session = { id: string; name: string; method: string; groups: Group[]; weighting: string; excluded: string[]; coinsTotal: number; coinsMax: number; showResults: boolean; retention: number; closesAt: string | null; voterFields: string[] };
 
 const local = (iso: string | null) => (iso ? new Date(iso).toLocaleString("sv-SE", { hour12: false }).replace(" ", "T").slice(0, 16) : "");
 
@@ -58,6 +59,14 @@ export function SettingsForm({ session, locked }: { session: Session; locked: bo
         )}
         <label>Closes at (optional, your time zone)<input name="closes_at" type="datetime-local" defaultValue={local(session.closesAt)} /></label>
         <label className="check"><input type="checkbox" name="show_results" defaultChecked={session.showResults} /> Participants may see the anonymous results after the session closes</label>
+        <fieldset className="stack">
+          <legend>What voters can open under &ldquo;More&rdquo; on each initiative</legend>
+          <p className="muted">Voters always see the name, summary and value proposition. The card is closed until they open it. Only what you tick is copied when the session opens, and it cannot change afterwards.</p>
+          <input type="hidden" name="voter_fields_present" value="1" />
+          {VOTER_FIELDS.map((f) => (
+            <label key={f.key} className="check"><input type="checkbox" name="voter_fields" value={f.key} defaultChecked={session.voterFields.includes(f.key)} /> {f.label}{f.commercial && <span className="muted"> (commercial: voters will see the number)</span>}</label>
+          ))}
+        </fieldset>
         <label>Keep personal data for (months after closing)<input name="retention" type="number" min={1} max={120} defaultValue={session.retention} /></label>
       </fieldset>
       {!locked && <div><button className="btn btn-primary" type="submit" disabled={pending}>{pending ? "Saving…" : "Save settings"}</button></div>}

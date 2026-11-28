@@ -14,14 +14,14 @@ export default async function WorkspaceSettingsPage() {
   let projectRows: ProjectRow[] = [];
   if (active.role === "admin" && !active.platform) {
     const [{ data: ps }, { data: live }, { data: trashed }] = await Promise.all([
-      supabase.from("projects").select("id, name, tracker").eq("tenant_id", active.tenantId).order("name"),
+      supabase.from("projects").select("id, name, tracker, alignment_coins_total, alignment_coins_max_per_item").eq("tenant_id", active.tenantId).order("name"),
       supabase.from("items").select("home_project_id").eq("tenant_id", active.tenantId).is("deleted_at", null).limit(20000),
       supabase.rpc("trashed_items", { p_tenant: active.tenantId }),
     ]);
     const count = (rows: { home_project_id?: string | null }[] | null | undefined) => { const m = new Map<string, number>(); for (const r of rows ?? []) if (r.home_project_id) m.set(r.home_project_id, (m.get(r.home_project_id) ?? 0) + 1); return m; };
     const liveBy = count(live as { home_project_id: string }[] | null);
     const trashedBy = count(trashed as { home_project_id: string }[] | null);
-    projectRows = ((ps ?? []) as { id: string; name: string; tracker: string | null }[]).map((p) => ({ id: p.id, name: p.name, tracker: p.tracker === "jira" || p.tracker === "github" ? p.tracker : null, live: liveBy.get(p.id) ?? 0, trashed: trashedBy.get(p.id) ?? 0 }));
+    projectRows = ((ps ?? []) as { id: string; name: string; tracker: string | null; alignment_coins_total: number; alignment_coins_max_per_item: number }[]).map((p) => ({ id: p.id, name: p.name, tracker: p.tracker === "jira" || p.tracker === "github" ? p.tracker : null, live: liveBy.get(p.id) ?? 0, trashed: trashedBy.get(p.id) ?? 0, coinsTotal: p.alignment_coins_total, coinsMax: p.alignment_coins_max_per_item }));
   }
   return (
     <div className="page-narrow">
