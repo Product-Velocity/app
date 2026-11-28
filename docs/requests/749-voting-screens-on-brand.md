@@ -1,7 +1,9 @@
 ---
 issue: 749
-status: in progress
+status: done
 logged: 2026-11-28
+done: 2026-11-28
+link: PR #752 (the screens), the coin card follow-up in the next PR
 title: Voting screens and flows on brand, mobile first
 ---
 Ashu, 2026-11-28: "A little while ago, we updated the mobile website version of PV to be more on brand. Can we also update all the voting screens and flows to be more on brand, especially on mobile."
