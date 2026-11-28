@@ -10,6 +10,7 @@
 //   type: improved     (optional: new, improved, fixed, retired or security; shown as the group in "What's new". Left out, it is worked out from the title)
 //   ---
 //   **Title.** What changed, for the person who uses the product (this text becomes the "Key updates" cell).
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -56,11 +57,24 @@ export function assemble({ version, releases, fragments, date, pr = "" }) {
   const applied = [];
   for (const f of [...fragments].sort((a, b) => a.name.localeCompare(b.name))) {
     v = nextVersion(v, f.bump);
-    rows.unshift(`| ${v} | ${date} | ${f.body} | ${pr} |`);
+    rows.unshift(`| ${v} | ${date} | ${f.body} | ${f.pr ?? pr} |`);
     applied.push({ version: v, name: f.name });
   }
   lines.splice(sep + 1, 0, ...rows);
   return { version: v, releases: lines.join("\n"), applied };
+}
+
+function fragmentPr(name) {
+  try {
+    const subject = execFileSync(
+      "git",
+      ["log", "--first-parent", "-m", "--diff-filter=A", "--format=%s", "-1", "--", `docs/releases/unreleased/${name}`],
+      { cwd: root, encoding: "utf8" },
+    );
+    return /#\d+/.exec(subject)?.[0];
+  } catch {
+    return undefined;
+  }
 }
 
 function main() {
@@ -73,7 +87,10 @@ function main() {
     console.log("No release fragments: nothing to do.");
     return;
   }
-  const fragments = names.map((n) => parseFragment(n, readFileSync(path.join(FRAGMENT_DIR, n), "utf8")));
+  const fragments = names.map((n) => ({
+    ...parseFragment(n, readFileSync(path.join(FRAGMENT_DIR, n), "utf8")),
+    pr: fragmentPr(n),
+  }));
   const pkgPath = path.join(root, "apps/web/package.json");
   const pkg = readFileSync(pkgPath, "utf8");
   const current = /"version":\s*"(\d+\.\d+\.\d+)"/.exec(pkg)?.[1];

@@ -58,6 +58,24 @@ describe("release fragments (issue #238)", () => {
     expect(out.releases.startsWith("# Release log")).toBe(true);
   });
 
+  it("uses each fragment's own PR when catching up queued fragments across merges", () => {
+    const out = assemble({
+      version: "1.0.0",
+      releases: TABLE,
+      date: "2026-11-28",
+      pr: "#753",
+      fragments: [
+        { name: "20261128-a.md", bump: "minor", body: "**First.** A.", pr: "#747" },
+        { name: "20261128-b.md", bump: "minor", body: "**Second.** B." },
+      ],
+    });
+    const rows = out.releases.split("\n").filter((l: string) => /^\| 1\./.test(l));
+    expect(rows).toEqual([
+      "| 1.2.0 | 2026-11-28 | **Second.** B. | #753 |",
+      "| 1.1.0 | 2026-11-28 | **First.** A. | #747 |",
+    ]);
+  });
+
   it("the real log still has its table, so the script has somewhere to write", () => {
     const log = readFileSync(path.join(root, "docs/RELEASES.md"), "utf8");
     expect(() => assemble({ version: "0.1.0", releases: log, fragments: [], date: "2026-10-28" })).not.toThrow();
