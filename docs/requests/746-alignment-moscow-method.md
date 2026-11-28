@@ -13,4 +13,6 @@ Decided in the same conversation:
 - Re-voting needs nothing new: round 2 is a new session whose name says "round 2".
 - Planning cycles and capacity stay out of scope.
 
-Not part of this request, to log separately: decision cards in the participant view, and a readiness check before a session opens.
+Updated 2026-11-28 with Ashu's answers (full record: `docs/decisions/2026-11-28-alignment-moscow-and-small-groups.md`): no "no opinion" and ties go cautious; coins default per project (the session already has them); everything the admin selects is voted on, no readiness check; a closed-by-default card for voters with Business Line, Business Value and Effort; a per-session toggle that shows a group its own result even under 5 voters (default off, new consent version); one-pagers in Description (no commercial text there), wireframe as an attachment; no combined ballot, no capacity.
+
+Slices, each ending in something clickable: 1 the `moscow` method (migration, scoring, ballot, results); 2 apply the MoSCoW from the result; 3 project coin defaults and the voter card with its three fields; 4 the small-group toggle with consent version and the docs/rule 7 amendment. Help pages updated in each slice that touches what Claude can see or do.
