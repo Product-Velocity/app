@@ -416,6 +416,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "alignment_moscow_applications",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.alignment_moscow_applications set changed = 99 where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.alignment_moscow_applications where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.alignment_moscow_applications (tenant_id, session_id, scope, changes, changed) select tenant_id, session_id, 'all', '[]', 1 from public.alignment_moscow_applications where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.alignment_moscow_applications set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "alignment_rank_reasons",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

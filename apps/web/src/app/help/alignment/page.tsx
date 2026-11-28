@@ -82,6 +82,7 @@ export default function AlignmentPage() {
             "Each initiative shows its crowd result on the Alignment tab of the side panel: score, place, whether it is contested, and the session and date. The grid has the Crowd Rank, Crowd Score, Consensus and Votes columns.",
             "The session gives a suggested order. An admin can adjust it, record why the final order differs from the crowd's, and apply it to Stack Rank. Every application is audited and can be undone.",
             "The vote informs and leadership decides. Applying a result is a plain admin action; it does not replace a decision gate.",
+            "A MoSCoW vote works the same way, on the MoSCoW field instead of the Stack Rank. The results page suggests a value for each initiative (a tie goes to the more cautious choice), shows what each initiative has now, and an admin ticks the ones to set, changes a value if needed and gives a reason wherever it differs from the vote. A value that is set now is only overwritten for the initiatives left ticked, and the change can be undone while nothing has changed it since. Claude can never set it.",
           ]}
         />
         <HelpCallout title="People decide.">
