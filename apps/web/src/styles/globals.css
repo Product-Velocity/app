@@ -2238,3 +2238,13 @@ a.tool-btn { text-decoration: none; display: inline-flex; align-items: center; c
 .ballot-more dl > div { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); padding-top: 6px; }
 .ballot-more dt { color: var(--ink-muted); }
 .ballot-more dd { margin: 0; font-weight: 600; }
+
+/* The company brand card (issue #750) */
+.brand-swatches { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.brand-swatch { display: inline-block; width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--border-strong); vertical-align: middle; }
+.brand-logo-preview { display: block; max-height: 64px; max-width: 240px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 6px; }
+.brand-picker { width: 44px; height: 30px; padding: 0; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); }
+.brand-preview { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.brand-preview-button { display: inline-flex; align-items: center; min-height: 36px; padding: 0 16px; border-radius: 8px; background: var(--b); color: var(--bo); font-weight: 600; }
+.brand-preview-link { color: var(--bs); text-decoration: underline; font-weight: 600; }
+.brand-preview-selected { padding: 6px 12px; border: 1px solid var(--b); border-left: 4px solid var(--b); border-radius: 6px; background: var(--bt); color: var(--bs); font-weight: 600; }

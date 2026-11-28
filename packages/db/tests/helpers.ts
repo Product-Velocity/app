@@ -355,6 +355,9 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   if ((await db.admin.query("select to_regclass('public.alignment_moscow_applications') as t")).rows[0].t) { // issue #746; older-schema tests seed before this table exists
     await db.admin.query("insert into public.alignment_moscow_applications (tenant_id, session_id, scope, changes, changed) values ($1, $2, 'all', '[]', 1)", [tenantId, sess]);
   }
+  if ((await db.admin.query("select to_regclass('public.workspace_brand') as t")).rows[0].t) { // issue #750; older-schema tests seed before this table exists
+    await db.admin.query("insert into public.workspace_brand (tenant_id, display_name, primary_color) values ($1, 'Seed brand', '#2270ed')", [tenantId]);
+  }
   // a send-log row (positive control; the log holds no address, name, token or body)
   if ((await db.admin.query("select to_regclass('public.email_send_log') as t")).rows[0].t) {
     await db.admin.query("insert into public.email_send_log (template_key, tenant_id, status, provider_id) values ('app.invitation', $1, 'sent', $2)", [tenantId, `re_seed_${tenantId}`]);

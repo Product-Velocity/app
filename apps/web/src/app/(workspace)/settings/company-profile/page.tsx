@@ -1,6 +1,9 @@
 import { formatDate, PROFILE_STALE_DAYS, summarizeProfile, type ProfileSections } from "@pv/domain";
 import { requireWorkspace } from "@/lib/session";
 import { ProfileForm } from "./form";
+import { BrandCard, type BrandRow } from "./brand-card";
+import { hasFeature } from "@/lib/entitlements";
+import { supabaseFileStore } from "@/lib/files/store";
 
 export const metadata = { title: "Company profile · Product Velocity" };
 
@@ -18,6 +21,13 @@ export default async function CompanyProfilePage() {
   const sum = summarizeProfile(row);
   const day = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10), new Date()) : null);
   const isAdmin = active.role === "admin";
+  // the brand (issue #750): the row, the logo as a data address for the preview (it is private until the brand is confirmed), and whether the plan has branding
+  const { data: b } = await supabase.from("workspace_brand").select("display_name, primary_color, accent_color, heading_font, body_font, source, source_note, status, ai_draft, version, confirmed_at, use_on_voting, use_in_app, logo_path").eq("tenant_id", active.tenantId).maybeSingle();
+  const brandRaw = (b as (Omit<BrandRow, "has_logo"> & { logo_path: string | null }) | null) ?? null;
+  let logoDataUrl: string | null = null;
+  if (brandRaw?.logo_path) { const bytes = await supabaseFileStore().get(brandRaw.logo_path).catch(() => null); if (bytes) logoDataUrl = `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`; }
+  const brand: BrandRow | null = brandRaw ? { ...brandRaw, has_logo: !!brandRaw.logo_path } : null;
+  const brandAllowed = await hasFeature(supabase, active.tenantId, "branding");
   return (
     <div className="page-narrow">
       <h1>Company profile</h1>
@@ -36,6 +46,9 @@ export default async function CompanyProfilePage() {
         </p>
         <ProfileForm sections={(row?.sections ?? {}) as Record<string, string>} version={row?.version ?? null} canEdit={isAdmin} status={sum.state} />
       </div>
+      {brandAllowed ? <BrandCard brand={brand} companyUrl={url} logoDataUrl={logoDataUrl} canEdit={isAdmin && !active.platform} /> : (
+        <section className="card stack" id="brand"><h2>Brand</h2><p className="muted">Company branding is not part of this workspace&apos;s plan.</p></section>
+      )}
     </div>
   );
 }

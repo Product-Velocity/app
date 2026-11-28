@@ -101,18 +101,21 @@ const safeLookup = ((hostname: string, options: dns.LookupOptions, cb: (err: Err
   });
 }) as unknown as net.LookupFunction;
 
-function getOnce(u: URL): Promise<{ status: number; location: string | null; type: string; body: string }> {
+type Fetched = { status: number; location: string | null; type: string; body: Buffer };
+export type PublicFetchOptions = { accept: string; maxBytes: number; types: RegExp; timeoutMs?: number; userAgent?: string };
+
+function getOnce(u: URL, o: PublicFetchOptions): Promise<Fetched> {
   return new Promise((resolve, reject) => {
     const lib = u.protocol === "https:" ? https : http;
-    const req = lib.request(u, { method: "GET", lookup: safeLookup, timeout: TIMEOUT_MS, headers: { "User-Agent": "ProductVelocityLinkTitle/1.0", Accept: "text/html", "Accept-Encoding": "identity" } }, (res) => {
+    const req = lib.request(u, { method: "GET", lookup: safeLookup, timeout: o.timeoutMs ?? TIMEOUT_MS, headers: { "User-Agent": o.userAgent ?? "ProductVelocityLinkTitle/1.0", Accept: o.accept, "Accept-Encoding": "identity" } }, (res) => {
       const type = String(res.headers["content-type"] ?? "");
       const status = res.statusCode ?? 0;
       const location = typeof res.headers.location === "string" ? res.headers.location : null;
-      if (status !== 200 || !/^text\/html|^application\/xhtml/i.test(type)) { res.destroy(); return resolve({ status, location, type, body: "" }); }
+      if (status !== 200 || !o.types.test(type)) { res.destroy(); return resolve({ status, location, type, body: Buffer.alloc(0) }); }
       const chunks: Buffer[] = [];
       let n = 0;
-      res.on("data", (c: Buffer) => { chunks.push(c); n += c.length; if (n >= MAX_BYTES) res.destroy(); });
-      const done = () => resolve({ status, location, type, body: Buffer.concat(chunks).subarray(0, MAX_BYTES).toString("utf8") });
+      res.on("data", (c: Buffer) => { chunks.push(c); n += c.length; if (n >= o.maxBytes) res.destroy(); });
+      const done = () => resolve({ status, location, type, body: Buffer.concat(chunks).subarray(0, o.maxBytes) });
       res.on("end", done); res.on("close", done); res.on("error", done);
     });
     req.on("timeout", () => req.destroy(new Error("timeout")));
@@ -121,14 +124,24 @@ function getOnce(u: URL): Promise<{ status: number; location: string | null; typ
   });
 }
 
-export async function fetchLinkTitle(raw: string): Promise<string | null> {
+/**
+ * One public page or file, fetched under the same rules as a link title: http(s) on the usual ports, no credentials, only public addresses (checked again when the
+ * connection is made), at most 3 redirects each checked the same way, a timeout, a size limit and an allowed content type. Any failure answers null.
+ * Used for a link title and for reading a company's own website for its brand (issue #750).
+ */
+export async function fetchPublic(raw: string, o: PublicFetchOptions): Promise<{ url: URL; type: string; body: Buffer } | null> {
   let u = allowedUrl(raw);
   try {
     for (let hop = 0; u && hop <= MAX_REDIRECTS; hop++) {
-      const r = await getOnce(u);
+      const r = await getOnce(u, o);
       if (r.status >= 300 && r.status < 400 && r.location) { u = allowedUrl(new URL(r.location, u).toString()); continue; }
-      return r.body ? parseTitle(r.body) : null;
+      return r.status === 200 && r.body.length > 0 ? { url: u, type: r.type, body: r.body } : null;
     }
-  } catch { /* a title is a convenience */ }
+  } catch { /* the caller treats a failure as "nothing found" */ }
   return null;
+}
+
+export async function fetchLinkTitle(raw: string): Promise<string | null> {
+  const r = await fetchPublic(raw, { accept: "text/html", maxBytes: MAX_BYTES, types: /^text\/html|^application\/xhtml/i });
+  return r ? parseTitle(r.body.toString("utf8")) : null;
 }

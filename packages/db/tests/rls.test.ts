@@ -426,6 +426,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "workspace_brand",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.workspace_brand set display_name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.workspace_brand where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.workspace_brand (tenant_id, display_name) values ($1, 'Injected')", params: [v.tenantId] },
+      { sql: "update public.workspace_brand set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "alignment_rank_reasons",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
