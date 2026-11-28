@@ -68,13 +68,13 @@ begin
     on conflict (ballot_id, alignment_item_id) do update set impact = excluded.impact, confidence = excluded.confidence, ease = excluded.ease, rank = null, coins = null, moscow = null;
   elsif s.method = 'moscow' then
     -- every initiative of the session needs one of must, should, could, wont: there is no "no opinion"
-    if jsonb_typeof(p_answers -> 'moscow') <> 'object' then raise exception 'Choose Must, Should, Could or Won''t for every initiative first.' using errcode = '22023'; end if;
+    if coalesce(jsonb_typeof(p_answers -> 'moscow'), '') <> 'object' then raise exception 'Choose Must, Should, Could or Won''t for every initiative first.' using errcode = '22023'; end if;
     for r in select key, value from jsonb_each_text(p_answers -> 'moscow') loop
       if r.key !~ '^[0-9a-f-]{36}$' or not (r.key::uuid = any (v_items)) then raise exception 'Unknown initiative.' using errcode = '22023'; end if;
-      if r.value not in ('must', 'should', 'could', 'wont') then raise exception 'Choose Must, Should, Could or Won''t.' using errcode = '22023'; end if;
+      if r.value is null or r.value not in ('must', 'should', 'could', 'wont') then raise exception 'Choose Must, Should, Could or Won''t.' using errcode = '22023'; end if;
     end loop;
     for r in select it from unnest(v_items) it loop
-      if not jsonb_exists(p_answers -> 'moscow', r.it::text) then raise exception 'Choose Must, Should, Could or Won''t for every initiative.' using errcode = '22023'; end if;
+      if not coalesce(jsonb_exists(p_answers -> 'moscow', r.it::text), false) then raise exception 'Choose Must, Should, Could or Won''t for every initiative.' using errcode = '22023'; end if;
     end loop;
     insert into public.alignment_votes (tenant_id, session_id, ballot_id, alignment_item_id, moscow)
     select s.tenant_id, s.id, b.id, it, p_answers -> 'moscow' ->> it::text from unnest(v_items) it
