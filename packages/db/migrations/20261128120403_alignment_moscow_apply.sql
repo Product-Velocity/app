@@ -34,6 +34,9 @@ create trigger alignment_moscow_applications_audit after insert or update on pub
 -- platform staff read, never write, customer data (rule 10)
 create trigger a_platform_readonly_guard before insert or update or delete on public.alignment_moscow_applications
   for each row execute function platform.readonly_guard();
+-- a paused account can write nothing (the guard every tenant table carries)
+create trigger b_platform_suspended_guard before insert or update or delete on public.alignment_moscow_applications
+  for each row execute function platform.suspended_guard();
 alter table public.alignment_moscow_applications enable row level security;
 create policy alignment_moscow_applications_select on public.alignment_moscow_applications for select to authenticated
   using (tenant_id = any (array (select public.my_admin_tenant_ids())));
