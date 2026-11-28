@@ -107,4 +107,51 @@ test.describe("participant ballot on a phone (0.24.0)", () => {
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
     });
   }
+
+  test("moscow: every initiative needs a choice, the choices are Must, Should, Could and Won't, and submit sends them all", async ({ page }) => {
+    await open(page, "moscow", 3);
+    const submit = page.getByRole("button", { name: "Submit my vote" });
+    await expect(submit).toBeDisabled();
+    await expect(page.getByText("Choose for 3 more initiatives.")).toBeVisible();
+    await page.getByRole("button", { name: /^Must\s*for Initiative 1$/ }).click();
+    await page.getByRole("button", { name: /^Should\s*for Initiative 2$/ }).click();
+    await expect(page.getByText("Choose for 1 more initiative.")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Must\s*for Initiative 1$/ })).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: /^Won't\s*for Initiative 3$/ }).click();
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(page.getByText("Your vote is saved.")).toBeVisible();
+    expect((await rec(page)).submits[0]!.answers).toEqual({ moscow: { "item-1": "must", "item-2": "should", "item-3": "wont" } });
+  });
+
+  test("the card under More is closed until opened and shows the three fields", async ({ page }) => {
+    await open(page, "coins", 3);
+    const more = page.getByText("More about this initiative");
+    await expect(more).toHaveCount(1); // only the first initiative has a card
+    await expect(page.getByText("Business Line")).toBeHidden();
+    await more.click();
+    await expect(page.getByText("Business Line")).toBeVisible();
+    await expect(page.getByText("€250,000")).toBeVisible();
+    await expect(page.getByText("Effort", { exact: true })).toBeVisible();
+  });
 });
+
+for (const [name, viewport] of [["a 360 px phone", { width: 360, height: 740 }], ["a 390 px phone", { width: 390, height: 844 }], ["a tablet", { width: 768, height: 1024 }], ["a desktop", { width: 1280, height: 800 }]] as const) {
+  test.describe(`voting screens on ${name}`, () => {
+    test.use({ viewport });
+    for (const method of ["coins", "ice", "top5_duels", "moscow"]) {
+      test(`${method}: no sideways scrolling, no accessibility violations, tap targets and the submit bar stay usable`, async ({ page }) => {
+        await open(page, method, 6);
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        expect(overflow).toBeLessThanOrEqual(0);
+        const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+        expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+        // every button and number field is at least 44px high (WCAG 2.2 target size, brand guide)
+        const small = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>(".voter button, .voter input[type=number]")].filter((e) => e.getBoundingClientRect().height < 43.5).map((e) => e.textContent?.trim() || e.getAttribute("aria-label") || e.tagName));
+        expect(small).toEqual([]);
+        // the page uses the voter layout: the 16px reading size, not the 13px app size
+        expect(await page.evaluate(() => getComputedStyle(document.querySelector(".voter")!).fontSize)).toBe("16px");
+      });
+    }
+  });
+}

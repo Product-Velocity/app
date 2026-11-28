@@ -28,6 +28,7 @@ export * from "./leadership-digest";
 export * from "./update-format";
 export * from "./alignment-scoring";
 export * from "./crowd";
+export * from "./brand-colors";
 export * from "./quick-filters";
 export * from "./view-bar";
 export * from "./claude";
