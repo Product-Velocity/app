@@ -1,5 +1,6 @@
 import { resolveLink } from "@/lib/alignment-link";
 import { LinkButton } from "../join-form";
+import { VoterShell } from "../voter-shell";
 
 export const metadata = { title: "Stop reminders · Product Velocity", robots: { index: false, follow: false }, referrer: "no-referrer" };
 export const dynamic = "force-dynamic";
@@ -9,9 +10,7 @@ export default async function StopRemindersPage({ params }: { params: Promise<{ 
   const { token } = await params;
   const link = await resolveLink(token);
   return (
-    <main className="auth-page">
-      <div className="card auth-card stack">
-        <h1>Stop reminders</h1>
+    <VoterShell title="Stop reminders">
         {link.kind === "unknown" ? (
           <p className="muted">This link is not valid. Ask the person who invited you.</p>
         ) : (
@@ -20,7 +19,6 @@ export default async function StopRemindersPage({ params }: { params: Promise<{ 
             <LinkButton token={token} action="stop" label="Stop reminders" />
           </>
         )}
-      </div>
-    </main>
+    </VoterShell>
   );
 }

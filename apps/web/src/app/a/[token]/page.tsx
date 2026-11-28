@@ -6,19 +6,13 @@ import { cleanProgress, type BallotItem, type Method } from "@/lib/alignment-bal
 import { cardRows } from "@/lib/voter-card";
 import { Ballot } from "./ballot";
 import { LinkButton } from "./join-form";
+import { VoterShell } from "./voter-shell";
 
 export const metadata = { title: "Your vote · Product Velocity", robots: { index: false, follow: false }, referrer: "no-referrer" };
 export const dynamic = "force-dynamic";
 
 function Shell({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <main className="auth-page">
-      <div className="card auth-card stack">
-        <h1>{title}</h1>
-        {children}
-      </div>
-    </main>
-  );
+  return <VoterShell title={title}>{children}</VoterShell>;
 }
 
 /** The page behind a participant's personal link: no account, no sign-in. */
@@ -63,9 +57,7 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
     const names = new Map(snap.items.map((i) => [i.id, i.name]));
     const yours = (id: string) => { const v = mine.get(id); if (!v) return ""; if (v.moscow) return `Your choice: ${v.moscow === "wont" ? "Won't" : v.moscow[0]!.toUpperCase() + v.moscow.slice(1)}`; if (v.rank) return `Your place: ${v.rank}`; if (v.coins) return `Your coins: ${v.coins}`; return v.impact ? `Your scores: ${v.impact} / ${v.confidence} / ${v.ease}` : ""; };
     return (
-      <main className="auth-page">
-        <div className="card auth-card stack ballot-shell">
-          <h1>{s.name}: results</h1>
+      <VoterShell title={`${s.name}: results`}>
           <p className="muted">What {snap.voters} {snap.voters === 1 ? "person" : "people"} decided. These results are anonymous.</p>
           <ol className="plain-list">
             {snap.results.joint.map((r) => (
@@ -76,8 +68,7 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
             ))}
           </ol>
           <p className="muted">Equal scores share a place.</p>
-        </div>
-      </main>
+      </VoterShell>
     );
   }
 
@@ -122,9 +113,7 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
   const b = (ballot as { state: string; progress: unknown; revision: number }[] | null)?.[0];
   const method = METHODS.find((m) => m.value === s.method)!;
   return (
-    <main className="auth-page">
-      <div className="card auth-card stack ballot-shell">
-        <h1>{s.name}</h1>
+    <VoterShell title={s.name}>
         <p className="muted"><strong>{method.label}.</strong> {method.help}{s.method === "coins" ? ` You have ${s.coins_total} coins, at most ${s.coins_max_per_item} on one initiative.` : ""}</p>
         <Ballot
           token={token}
@@ -137,7 +126,6 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
           submitted={b?.state === "submitted"}
           closesAt={s.closes_at}
         />
-      </div>
-    </main>
+    </VoterShell>
   );
 }

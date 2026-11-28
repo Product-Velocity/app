@@ -85,7 +85,7 @@ export function Ballot({ api = { save: saveBallotProgress, submit: submitBallot 
   if (done) {
     return (
       <div className="stack ballot" aria-live="polite">
-        <p role="status" className="notice"><strong>Thank you. Your vote is saved.</strong></p>
+        <p role="status" className="notice success-note"><strong>Thank you. Your vote is saved.</strong></p>
         <p className="muted">You can change your vote{when || " until the session closes"}. Open your personal link again to do so.</p>
         <div><button type="button" className="btn" onClick={() => setDone(false)}>Change my vote</button></div>
       </div>
@@ -94,7 +94,7 @@ export function Ballot({ api = { save: saveBallotProgress, submit: submitBallot 
 
   const status = <p className="muted ballot-save" role="status" aria-live="polite">{saveNote ?? ""}</p>;
   const submitRow = (
-    <div className="stack">
+    <div className="stack ballot-submit">
       {!result.ok && <p className="muted">{result.reason}</p>}
       {error && <p role="alert" className="error">{error}</p>}
       <div><button type="button" className="btn btn-primary ballot-big" disabled={!result.ok || pending} onClick={send}>{pending ? "Saving…" : "Submit my vote"}</button></div>
@@ -133,7 +133,7 @@ export function Ballot({ api = { save: saveBallotProgress, submit: submitBallot 
         <p className="muted">Choose Must, Should, Could or Won&apos;t for every initiative. Every initiative needs a choice.</p>
         {items.map((i) => (
           <ItemCard key={i.id} item={i} selected={!!p.moscow?.[i.id]}>
-            <div className="ballot-choices" style={{ display: "flex", flexWrap: "wrap", gap: 8 }} role="group" aria-label={`MoSCoW for ${i.name}`}>
+            <div className="ballot-choices" role="group" aria-label={`MoSCoW for ${i.name}`}>
               {MOSCOW_CHOICES.map((c) => (
                 <button key={c.value} type="button" className={p.moscow?.[i.id] === c.value ? "btn btn-primary ballot-big" : "btn ballot-big"} aria-pressed={p.moscow?.[i.id] === c.value} title={c.help} onClick={() => change({ ...p, moscow: { ...(p.moscow ?? {}), [i.id]: c.value } })}>
                   {c.label}<span className="sr-only"> for {i.name}</span>

@@ -1,6 +1,6 @@
 ---
 issue: 749
-status: open
+status: in progress
 logged: 2026-11-28
 title: Voting screens and flows on brand, mobile first
 ---
