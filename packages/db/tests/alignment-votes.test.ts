@@ -8,7 +8,7 @@ let items: string[];
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 
 /** A session with the given method, open, with one consenting participant. Returns the ids needed. */
-async function setup(method: "top5_duels" | "coins" | "ice", nItems = 3, consent = true) {
+async function setup(method: "top5_duels" | "coins" | "ice" | "moscow", nItems = 3, consent = true) {
   const sid = await db.asUser(f.alice, async (q) => (await q("select public.alignment_session_create('S', $1, $2::uuid[]) as id", [method, items.slice(0, nItems)])).rows[0].id as string, { commit: true, via: "UI" });
   await db.asUser(f.alice, (q) => q("select public.alignment_session_configure($1, 'S', $2, '[{\"id\":\"all\",\"name\":\"All\"}]'::jsonb, 'equal', '{}', 100, 30, false, 12, null)", [sid, method]), { commit: true });
   await db.asUser(f.alice, (q) => q("select public.alignment_session_set_state($1, 'open')", [sid]), { commit: true });
@@ -63,7 +63,7 @@ describe("the ballot", () => {
   });
 });
 
-describe("the three methods", () => {
+describe("the four methods", () => {
   it("coins: all coins spent, at most 30 on one initiative, only this session's initiatives; the same answers twice change nothing", async () => {
     const { sid, pid, ai } = await setup("coins");
     await get(pid);
@@ -122,6 +122,31 @@ describe("the three methods", () => {
     const v = await votes(sid);
     expect(v.map((x) => [x.impact, x.confidence, x.ease])).toEqual(expect.arrayContaining([[8, 8, 8], [3, 9, 10]]));
   });
+  it("MoSCoW: every initiative needs one of must, should, could, wont; there is no no-opinion; a changed vote replaces the earlier one", async () => {
+    const { sid, pid, ai } = await setup("moscow", 3);
+    await get(pid);
+    expect(await errorCode(submit(pid, { moscow: { [ai[0]!]: "must", [ai[1]!]: "should" } }))).toBe("22023"); // one missing
+    expect(await errorCode(submit(pid, { moscow: { [ai[0]!]: "must", [ai[1]!]: "should", [ai[2]!]: "maybe" } }))).toBe("22023");
+    expect(await errorCode(submit(pid, { moscow: { [ai[0]!]: "must", [ai[1]!]: "should", [ai[2]!]: null } }))).toBe("22023");
+    expect(await errorCode(submit(pid, { moscow: { [ai[0]!]: "must", [ai[1]!]: "should", [ai[2]!]: "could", "00000000-0000-0000-0000-000000000000": "must" } }))).toBe("22023");
+    expect(await errorCode(submit(pid, { coins: {} }))).toBe("22023");
+    expect((await votes(sid)).length).toBe(0);
+    await submit(pid, { moscow: { [ai[0]!]: "must", [ai[1]!]: "should", [ai[2]!]: "wont" } });
+    const first = await votes(sid);
+    expect(first.map((v) => v.moscow).sort()).toEqual(["must", "should", "wont"]);
+    expect(first.every((v) => v.rank === null && v.coins === null && v.impact === null)).toBe(true);
+    await submit(pid, { moscow: { [ai[0]!]: "could", [ai[1]!]: "should", [ai[2]!]: "wont" } }, 2);
+    const again = await votes(sid);
+    expect(again.length).toBe(3);
+    expect(again.find((v) => v.alignment_item_id === ai[0])!.moscow).toBe("could");
+  });
+
+  it("MoSCoW is a method the session accepts; an unknown method is still refused", async () => {
+    const sid = await db.asUser(f.alice, async (q) => (await q("select public.alignment_session_create('M', 'moscow', $1::uuid[]) as id", [items.slice(0, 2)])).rows[0].id as string, { commit: true, via: "UI" });
+    expect((await db.admin.query("select method from public.alignment_sessions where id = $1", [sid])).rows[0].method).toBe("moscow");
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.alignment_session_create('M', 'tarot', $1::uuid[])", [items.slice(0, 2)]), { commit: true }))).toBe("23514");
+  });
+
   it("audit entries of a ballot carry the state only, never which participant owns it or what was answered", async () => {
     const { sid, pid, ai } = await setup("coins", 4);
     const ballot = await get(pid);

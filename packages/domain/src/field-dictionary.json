@@ -3651,9 +3651,9 @@
   "allowed": [],
   "allowedText": null,
   "origin": "Input",
-  "githubSync": "App -> GitHub: own section 'Description' of the managed block of the issue body (Markdown). Do not put value, customers or decisions in it.",
+  "githubSync": "App -> GitHub: own section 'Description' of the managed block of the issue body (Markdown). The person decides what goes in it; the app does not scan it.",
   "filledWhen": "Before the push",
-  "description": "The technical description that engineers and agents work from, written in Markdown (headings, lists, links, tables). It becomes its own section of the tracking issue. It is visible to everyone who can see the issue, so keep value, customers and decisions out of it."
+  "description": "The technical description that engineers and agents work from, written in Markdown (headings, lists, links, tables). It becomes its own section of the tracking issue and is sent to GitHub and Jira, where everyone who can see the issue can read it. You decide what goes in it: a full one-pager is fine in a private project."
  },
  {
   "n": "N46",

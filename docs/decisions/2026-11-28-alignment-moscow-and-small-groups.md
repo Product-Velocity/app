@@ -15,5 +15,5 @@ request: 746
 8. **Out of scope:** capacity and planning cycles, a combined MoSCoW-plus-points ballot. Round 2 of a vote is a new session named "round 2".
 
 **Content conventions for the Q1-27 round (no build):**
-- **One-pager in Description.** The Description field is pushed into the managed block of the GitHub issue body and the Jira description, and the dictionary says it must not hold value, customers or decisions. So the one-pager sections What, How, Slices, Hypothesis and the risks go in Description; evidence with customer counts or ARR goes in Cost of Not Doing, Customers Requesting, the Business Value fields and the Key Result fields (never synced). An item only reaches a tracker after its gate, but the text stays there afterwards.
+- **One-pager in Description.** The whole one-pager goes in Description (up to 20,000 characters). It is sent to the GitHub issue and the Jira description once the item syncs, so the person decides what goes in it: `docs/decisions/2026-11-28-description-is-the-persons-call.md`.
 - **Wireframe.** Attach it to the initiative on the Spec tab: an image file (pasted images become files and get a thumbnail) or a link such as Figma, named "Wireframe". Files and links are shared with the tracker as a link unless "Do not share" is set. It is **not** shown to voters: the voter card has no image yet.

@@ -4,6 +4,7 @@ import { requireWorkspace } from "@/lib/session";
 import { computeResults, finalResults, teamPlaces, type ResultsSnapshot } from "@/lib/alignment-results";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { METHODS } from "@/lib/alignment";
+import { MOSCOW_LABEL, MOSCOW_ORDER } from "@pv/domain";
 import { RANK_STATUS } from "@/lib/alignment-rank";
 import { loadSuggestion } from "@/lib/alignment-rank-server";
 import { SuggestedOrder } from "./suggested-order";
@@ -65,6 +66,29 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
       {snap.voters === 0 && <p className="notice">Nobody has voted yet.</p>}
       {r.groupsNote && <p className="notice">{r.groupsNote}</p>}
 
+      {r.moscow && (
+        <section aria-labelledby="moscow-suggested">
+          <h2 id="moscow-suggested">Suggested MoSCoW</h2>
+          <p className="muted">The most chosen bucket wins. When two are level, the more cautious one is suggested and the initiative is marked contested, as it is when someone chose Must and someone chose Won&rsquo;t. Shares follow the group weighting above; the numbers in brackets are people. {isAdmin ? "A person sets the final MoSCoW; nothing here changes it." : ""}</p>
+          <div className="table-wrap">
+            <table className="table">
+              <caption className="sr-only">Suggested MoSCoW by initiative</caption>
+              <thead><tr><th scope="col">Initiative</th><th scope="col">Suggested</th>{MOSCOW_ORDER.map((m) => <th scope="col" key={m}>{MOSCOW_LABEL[m]}</th>)}<th scope="col">Note</th></tr></thead>
+              <tbody>
+                {r.moscow.map((m) => (
+                  <tr key={m.itemId}>
+                    <td>{name.get(m.itemId)}</td>
+                    <td><strong>{snap.voters === 0 ? "–" : MOSCOW_LABEL[m.suggested]}</strong></td>
+                    {MOSCOW_ORDER.map((k) => <td key={k}>{m.shares[k].toFixed(0)}% <span className="muted">({m.counts[k]})</span></td>)}
+                    <td>{m.tied ? <strong>Contested: level, the more cautious choice is suggested</strong> : m.contested ? <strong>Contested: Must and Won&rsquo;t both chosen</strong> : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <div className="table-wrap">
         <table className="table">
           <caption className="sr-only">Results by initiative</caption>
@@ -96,7 +120,7 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
         </table>
       </div>
       <p className="muted">Equal scores share a place and are shown as tied. Gap compares the crowd&rsquo;s place with the team&rsquo;s Stack Rank among these initiatives. Groups with fewer than 5 voters are never shown on their own. A person decides the Stack Rank; nothing here changes it.</p>
-      {suggestion && (
+      {suggestion && s.method !== "moscow" && (
         <section aria-labelledby="suggested-order">
           <h2 id="suggested-order">Order for the Stack Rank</h2>
           <p className="muted">The vote is advice. A person decides: nothing changes until you apply it, and Claude can never apply it.</p>

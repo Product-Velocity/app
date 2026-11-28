@@ -4,6 +4,7 @@ export const METHODS = [
   { value: "top5_duels", label: "Top 5, then duels", help: "Each person picks their five most important initiatives, then settles close calls in head-to-head duels." },
   { value: "coins", label: "100 coins", help: "Each person spends coins across the initiatives, with a maximum per initiative." },
   { value: "ice", label: "ICE sliders", help: "Each person scores impact, confidence and ease for every initiative with sliders." },
+  { value: "moscow", label: "MoSCoW", help: "Each person chooses Must, Should, Could or Won't for every initiative. The vote suggests a MoSCoW for each one (a tie goes to the more cautious choice); an admin sets the final value." },
 ] as const;
 export type Method = (typeof METHODS)[number]["value"];
 export const STATES = ["draft", "open", "closed", "archived"] as const;

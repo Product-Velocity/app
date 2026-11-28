@@ -50,13 +50,14 @@ export default function AlignmentPage() {
       <HelpSection id="large" title="Large groups: alignment sessions">
         <p>An alignment session asks a chosen group of people to rank a set of initiatives. Participants need no account: each gets a personal link by email. You pick the method.</p>
         <HelpTable
-          caption="The three methods"
+          caption="The four methods"
           table={{
             head: ["Method", "How a person votes", "Best for"],
             rows: [
               ["Top 5, then duels", "Pick the five most important initiatives, then settle close calls in head-to-head duels", "Quick ranking from busy people"],
               ["100 coins", "Spend 100 coins across the initiatives, with a maximum per initiative", "Showing how strongly people feel, not only the order"],
               ["ICE sliders", "Score impact, confidence and ease for each initiative", "A structured score people can compare and explain"],
+              ["MoSCoW", "Choose Must, Should, Could or Won't for every initiative (no skipping)", "Agreeing what is in or out for a quarter. A tie goes to the more cautious choice; an admin sets the final MoSCoW"],
             ],
           }}
         />

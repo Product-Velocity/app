@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scoreSession, voteValue, place, type BallotInput } from "./alignment-scoring";
+import { scoreSession, voteValue, place, type BallotInput, type Moscow } from "./alignment-scoring";
 
 const items = ["x", "y", "z"];
 const many = (group: string, n: number, coins: [number, number, number]): BallotInput[] =>
@@ -110,5 +110,64 @@ describe("what the result may contain", () => {
     expect(JSON.stringify(merged)).not.toMatch(/Support|Partners/);
     expect(merged.groups!.map((g) => g.name)).toEqual(["Sales", "Engineering", "Other"]);
     expect(merged.groups!.every((g) => g.voters >= 5)).toBe(true);
+  });
+});
+
+describe("MoSCoW (issue #746)", () => {
+  const ids = ["a", "b", "c", "d"];
+  const ballot = (group: string, a: Moscow, b: Moscow, c: Moscow, d: Moscow): BallotInput => ({ group, votes: { a: { moscow: a }, b: { moscow: b }, c: { moscow: c }, d: { moscow: d } } });
+  const base = { method: "moscow" as const, itemIds: ids, groups: [{ id: "g", name: "G" }], weighting: "equal" as const, excluded: [] };
+
+  it("a person's value is Must 3, Should 2, Could 1, Won't 0, so scores and places work as for the other methods", () => {
+    expect([voteValue("moscow", { moscow: "must" }, 4), voteValue("moscow", { moscow: "should" }, 4), voteValue("moscow", { moscow: "could" }, 4), voteValue("moscow", { moscow: "wont" }, 4), voteValue("moscow", undefined, 4)]).toEqual([3, 2, 1, 0, 0]);
+  });
+
+  it("suggests the most chosen bucket", () => {
+    const r = scoreSession({ ...base, ballots: [ballot("g", "must", "should", "could", "wont"), ballot("g", "must", "should", "could", "wont"), ballot("g", "should", "should", "wont", "wont")] });
+    const by = Object.fromEntries(r.moscow!.map((m) => [m.itemId, m]));
+    expect(by.a!.suggested).toBe("must");
+    expect(by.a!.counts).toEqual({ must: 2, should: 1, could: 0, wont: 0 });
+    expect(by.b!.suggested).toBe("should");
+    expect(by.c!.suggested).toBe("could");
+    expect(by.d!.suggested).toBe("wont");
+    expect(by.a!.contested).toBe(false);
+    expect(Object.values(by.a!.shares).reduce((n, x) => n + x, 0)).toBeCloseTo(100, 1);
+  });
+
+  it("a tie goes to the more cautious bucket and is flagged", () => {
+    const r = scoreSession({ ...base, ballots: [ballot("g", "must", "should", "could", "must"), ballot("g", "should", "could", "wont", "wont")] });
+    const by = Object.fromEntries(r.moscow!.map((m) => [m.itemId, m]));
+    expect(by.a).toMatchObject({ suggested: "should", tied: true, contested: true });
+    expect(by.b).toMatchObject({ suggested: "could", tied: true, contested: true });
+    expect(by.c).toMatchObject({ suggested: "wont", tied: true, contested: true });
+    expect(by.d).toMatchObject({ suggested: "wont", tied: true, contested: true });
+  });
+
+  it("an initiative is contested when someone says Must and someone says Won't, even without a tie", () => {
+    const r = scoreSession({ ...base, ballots: [ballot("g", "must", "must", "must", "must"), ballot("g", "must", "must", "must", "must"), ballot("g", "wont", "must", "must", "must")] });
+    const by = Object.fromEntries(r.moscow!.map((m) => [m.itemId, m]));
+    expect(by.a).toMatchObject({ suggested: "must", tied: false, contested: true });
+    expect(by.b!.contested).toBe(false);
+  });
+
+  it("groups weigh equally by default, so a small group counts as much as a big one; headcount weighs by people", () => {
+    const ballots = [ballot("fin", "wont", "must", "must", "must"), ballot("tech", "must", "must", "must", "must"), ballot("tech", "must", "must", "must", "must"), ballot("tech", "must", "must", "must", "must")];
+    const groups = [{ id: "fin", name: "Finance" }, { id: "tech", name: "Tech" }];
+    const equal = scoreSession({ ...base, groups, ballots }).moscow!.find((m) => m.itemId === "a")!;
+    expect(equal.shares).toMatchObject({ must: 50, wont: 50 });
+    expect(equal.suggested).toBe("wont");
+    const head = scoreSession({ ...base, groups, weighting: "headcount", ballots }).moscow!.find((m) => m.itemId === "a")!;
+    expect(head.shares).toMatchObject({ must: 75, wont: 25 });
+    expect(head.suggested).toBe("must");
+  });
+
+  it("leaves out a group the admin excluded, and gives nothing for other methods or no votes", () => {
+    const ballots = [ballot("fin", "wont", "wont", "wont", "wont"), ballot("tech", "must", "must", "must", "must")];
+    const groups = [{ id: "fin", name: "Finance" }, { id: "tech", name: "Tech" }];
+    const r = scoreSession({ ...base, groups, excluded: ["fin"], ballots });
+    expect(r.moscow!.every((m) => m.suggested === "must" && m.counts.wont === 0)).toBe(true);
+    expect(scoreSession({ ...base, method: "coins", groups, ballots }).moscow).toBeUndefined();
+    const none = scoreSession({ ...base, ballots: [] }).moscow!;
+    expect(none.every((m) => !m.tied && !m.contested)).toBe(true);
   });
 });

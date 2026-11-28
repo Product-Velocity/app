@@ -70,3 +70,16 @@ describe("cleanProgress", () => {
     expect(c.step).toBe("duels");
   });
 });
+
+describe("MoSCoW", () => {
+  const two = items.slice(0, 2);
+  it("needs a choice for every initiative: there is no no-opinion", () => {
+    expect(answersFor("moscow", two, {}, { coinsTotal: 100 })).toEqual({ ok: false, reason: "Choose for 2 more initiatives." });
+    expect(answersFor("moscow", two, { moscow: { a: "must" } }, { coinsTotal: 100 })).toEqual({ ok: false, reason: "Choose for 1 more initiative." });
+    expect(answersFor("moscow", two, { moscow: { a: "must", b: "wont" } }, { coinsTotal: 100 })).toEqual({ ok: true, answers: { moscow: { a: "must", b: "wont" } } });
+  });
+  it("cleanProgress keeps only known initiatives and the four choices", () => {
+    const c = cleanProgress({ moscow: { a: "should", zzz: "must", b: "maybe", c: 3 } }, items);
+    expect(c.moscow).toEqual({ a: "should" });
+  });
+});
