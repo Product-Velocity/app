@@ -8,9 +8,11 @@ let items: string[];
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 
 /** A session with the given method, open, with one consenting participant. Returns the ids needed. */
-async function setup(method: "top5_duels" | "coins" | "ice" | "moscow", nItems = 3, consent = true) {
+async function setup(method: "top5_duels" | "coins" | "ice" | "moscow", nItems = 3, consent = true, o: { consentRequired?: boolean; ack?: boolean } = {}) {
   const sid = await db.asUser(f.alice, async (q) => (await q("select public.alignment_session_create('S', $1, $2::uuid[]) as id", [method, items.slice(0, nItems)])).rows[0].id as string, { commit: true, via: "UI" });
   await db.asUser(f.alice, (q) => q("select public.alignment_session_configure($1, 'S', $2, '[{\"id\":\"all\",\"name\":\"All\"}]'::jsonb, 'equal', '{}', 100, 30, false, 12, null)", [sid, method]), { commit: true });
+  // the tests below are about the rules with the consent step on, the way every session worked before issue #750; the new default (off) has its own tests
+  await db.asUser(f.alice, (q) => q("select public.alignment_session_set_voting_options($1, null, $2, $3)", [sid, o.consentRequired ?? true, o.ack ?? false]), { commit: true });
   await db.asUser(f.alice, (q) => q("select public.alignment_session_set_state($1, 'open')", [sid]), { commit: true });
   await db.asUser(f.alice, (q) => q("select public.alignment_participants_add($1, '[{\"email\":\"v@example.test\",\"group\":\"all\"}]'::jsonb)", [sid]), { commit: true });
   const pid = (await db.admin.query("select id from public.alignment_participants where session_id = $1", [sid])).rows[0].id as string;
@@ -218,5 +220,69 @@ describe("results and names", () => {
     const reveal = (user: string) => db.asUser(user, async (q) => (await q("select * from public.alignment_reveal_names($1, 'Checking a complaint')", [sid])).rows, { commit: true, via: "UI" });
     expect(await errorCode(reveal(pm))).toBe("42501");
     expect(await reveal(f.alice)).toHaveLength(1);
+  });
+});
+
+describe("what a session shows and asks (issue #750, part 2)", () => {
+  const opts = (user: string, sid: string, brand: boolean | null, consent: boolean | null, ack: boolean | null, via = "UI") =>
+    db.asUser(user, (q) => q("select public.alignment_session_set_voting_options($1, $2, $3, $4)", [sid, brand, consent, ack]), { commit: true, via });
+  const session = async (sid: string) => (await db.admin.query("select use_brand, consent_required, names_ack_by, names_ack_at, names_ack_version from public.alignment_sessions where id = $1", [sid])).rows[0];
+  const draft = () => db.asUser(f.alice, async (q) => (await q("select public.alignment_session_create('Options', 'coins', $1::uuid[]) as id", [items.slice(0, 3)])).rows[0].id as string, { commit: true, via: "UI" });
+
+  it("a new session uses the brand and does not ask for consent; the acknowledgement is empty until an admin gives it", async () => {
+    const sid = await draft();
+    expect(await session(sid)).toEqual({ use_brand: true, consent_required: false, names_ack_by: null, names_ack_at: null, names_ack_version: null });
+  });
+
+  it("an admin sets them on a draft; the acknowledgement is stamped with who and when, and cleared when the consent step is switched on", async () => {
+    const sid = await draft();
+    await opts(f.alice, sid, false, false, true);
+    const s = await session(sid);
+    expect(s).toMatchObject({ use_brand: false, consent_required: false, names_ack_by: f.alice, names_ack_version: "2026-11-v1" });
+    expect(s.names_ack_at).not.toBeNull();
+    await opts(f.alice, sid, true, true, true); // consent on: there is nothing to acknowledge
+    expect(await session(sid)).toEqual({ use_brand: true, consent_required: true, names_ack_by: null, names_ack_at: null, names_ack_version: null });
+  });
+
+  it("is for a person who is an admin: not Claude, not a creator, not another workspace; and it locks when the session opens", async () => {
+    const sid = await draft();
+    expect(await errorCode(opts(f.alice, sid, null, false, true, "MCP"))).toBe("PV004");
+    expect(await errorCode(opts(f.bob, sid, null, false, true))).toBe("42501");
+    await db.admin.query("insert into public.tenant_members (tenant_id, user_id, role) values ($1, $2, 'creator') on conflict do nothing", [f.tenantA, f.dave]);
+    expect(await errorCode(opts(f.dave, sid, null, false, true))).toBe("42501");
+    await opts(f.alice, sid, null, false, true);
+    await db.asUser(f.alice, (q) => q("select public.alignment_session_set_state($1, 'open')", [sid]), { commit: true });
+    expect(await errorCode(opts(f.alice, sid, false, true, null))).toBe("PV009");
+    expect(await session(sid)).toMatchObject({ use_brand: true, consent_required: false });
+  });
+
+  it("with no consent step, a Creator can open names only if the admin acknowledged; an admin always can; with the step on the old rule stands", async () => {
+    const pm = f.dave;
+    await db.admin.query("insert into public.tenant_members (tenant_id, user_id, role) values ($1, $2, 'creator') on conflict do nothing", [f.tenantA, pm]);
+    const reveal = (user: string, sid: string) => db.asUser(user, async (q) => (await q("select * from public.alignment_reveal_names($1, 'Planning the next quarter')", [sid])).rows, { commit: true, via: "UI" });
+    for (const [ack, creatorSees] of [[false, false], [true, true]] as const) {
+      const { sid, pid, ai } = await setup("coins", 4, true, { consentRequired: false, ack });
+      await get(pid);
+      await db.admin.query("update public.alignment_participants set consent_version = 'none' where id = $1", [pid]); // joined with no consent step
+      await submit(pid, { coins: { [ai[0]!]: 30, [ai[1]!]: 30, [ai[2]!]: 30, [ai[3]!]: 10 } });
+      await db.asUser(f.alice, (q) => q("select public.alignment_session_set_state($1, 'closed')", [sid]), { commit: true });
+      expect((await reveal(f.alice, sid)).length).toBe(1); // an admin always can
+      if (creatorSees) expect((await reveal(pm, sid)).length).toBe(1);
+      else expect(await errorCode(reveal(pm, sid))).toBe("42501");
+    }
+    // a participant's consent version "none" never satisfies the wording rule of a session that asks for consent
+    const { sid, pid } = await setup("coins", 3, true, { consentRequired: true });
+    await get(pid);
+    await db.admin.query("update public.alignment_participants set consent_version = 'none' where id = $1", [pid]);
+    await db.asUser(f.alice, (q) => q("select public.alignment_session_set_state($1, 'closed')", [sid]), { commit: true });
+    expect(await errorCode(reveal(pm, sid))).toBe("42501"); // "none" is not a wording version, although it sorts after "2026-11-v2"
+  });
+
+  it("Show names lists a voter's MoSCoW choice", async () => {
+    const { sid, pid, ai } = await setup("moscow", 3, true, { consentRequired: false });
+    await get(pid);
+    await submit(pid, { moscow: { [ai[0]!]: "must", [ai[1]!]: "could", [ai[2]!]: "wont" } });
+    const rows = await db.asUser(f.alice, async (q) => (await q("select * from public.alignment_reveal_names($1, 'Checking the vote')", [sid])).rows, { commit: true, via: "UI" });
+    expect((rows[0]!.answers as { moscow: string }[]).map((a) => a.moscow)).toEqual(["must", "could", "wont"]);
   });
 });

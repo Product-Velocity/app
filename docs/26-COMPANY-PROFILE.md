@@ -38,3 +38,6 @@ The in-app Help (AI agents) lists these flows. **Every change to the Claude feat
 
 ## 9. Sections added for the PV skills (issue #565, slice 3)
 `vision`, `strategy`, `metrics` and `conventions` join the sections (Ashu, 2026-11-21). The company-level skills (`pv-vision`, `pv-strategy`, `pv-northstar`, `pv-compete`, `pv-personas`) write a workspace document and, after the person agrees, merge the relevant part into one section as an AI draft (an admin confirms, as always). Later skills read these sections instead of asking again. The profile stays in `company_profiles`; the **Documents** page lists it together with the workspace documents (decision: one list, not one table).
+
+## 10. Brand (issue #750, 2026-11-28)
+The company profile page also holds the **Brand** of the workspace: logo, main and accent colour, heading and body font, found on the website or in a shared presentation or Word file, confirmed by an admin and switched on where wanted (voting screens and voter emails, the interface). It is its own table (`workspace_brand`) so it can be read by every member and by the voting pages without exposing the text sections. Claude may propose, never confirm. Decisions, the rules and what is not built yet: `docs/decisions/2026-11-28-company-brand.md`.

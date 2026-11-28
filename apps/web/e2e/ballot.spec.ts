@@ -155,3 +155,27 @@ for (const [name, viewport] of [["a 360 px phone", { width: 360, height: 740 }],
     }
   });
 }
+
+// Issue #750: a company brand on the voting screens. The colours are the derived, readable set, and no Product Velocity branding is left.
+for (const [name, viewport] of [["a 390 px phone", { width: 390, height: 844 }], ["a desktop", { width: 1280, height: 800 }]] as const) {
+  test.describe(`a branded vote on ${name}`, () => {
+    test.use({ viewport });
+    for (const colour of ["0b6e4f", "ffeb3b", "9ca3af", "d00000"]) {
+      test(`brand #${colour}: the company's name and logo, its colours, no Product Velocity, and still readable`, async ({ page }) => {
+        await page.goto(`/dev/ballot?method=moscow&n=3&brand=${colour}&name=Acme+Media&logo=1`);
+        await page.getByRole("heading", { name: "Q1 priorities" }).waitFor();
+        await expect(page.locator(".voter-brand-name")).toHaveText("Acme Media");
+        await expect(page.locator(".voter-logo")).toBeVisible();
+        expect(await page.locator("body").innerText()).not.toContain("Product Velocity");
+        expect(await page.locator(".voter-header").innerHTML()).not.toContain("Product Velocity");
+        expect(await page.evaluate(() => getComputedStyle(document.querySelector(".voter")!).getPropertyValue("--brand").trim())).toBe(`#${colour}`);
+        await page.getByRole("button", { name: /^Must\s*for Initiative 1$/ }).click();
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        expect(overflow).toBeLessThanOrEqual(0);
+        const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+        expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+      });
+    }
+  });
+}
+

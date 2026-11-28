@@ -1,4 +1,4 @@
-import { renderHtml, renderPersonalHtml, renderPersonalText, renderText } from "./layout";
+import { renderHtml, renderPersonalHtml, renderPersonalText, renderText, type EmailBrand } from "./layout";
 import { renderMacros, sampleValues, type MacroName, type MacroValues } from "./macros";
 
 /**
@@ -398,7 +398,7 @@ export type TemplateText = Pick<EmailTemplate, "subject" | "preheader" | "headin
 export type Rendered = { subject: string; html: string; text: string };
 
 /** Renders one template. `button.url` is built by the system, never by a template. The override is optional: no override, code default. */
-export function renderTemplate(t: EmailTemplate, input: { values: MacroValues; siteUrl: string; buttonUrl?: string | null; override?: Partial<TemplateText> | null; extraLink?: { label: string; url: string } | null }): Rendered {
+export function renderTemplate(t: EmailTemplate, input: { values: MacroValues; siteUrl: string; buttonUrl?: string | null; override?: Partial<TemplateText> | null; extraLink?: { label: string; url: string } | null; brand?: EmailBrand | null }): Rendered {
   const w: TemplateText = { ...t, ...(input.override ?? {}) };
   const plain = (s: string) => renderMacros(s, input.values, "text");
   const subject = plain(w.subject).replace(/\s+/g, " ").trim();
@@ -408,6 +408,7 @@ export function renderTemplate(t: EmailTemplate, input: { values: MacroValues; s
     code: t.macros.includes("code") ? input.values.code ?? null : null,
     button: w.button && input.buttonUrl ? { label: m(w.button), url: input.buttonUrl } : null,
     extraLink: input.extraLink ?? null,
+    brand: input.brand ?? null,
   });
   // the layout escapes its inputs, so give it plain text (macros resolved, not yet escaped)
   const l = layout(plain);
@@ -428,9 +429,9 @@ export const templateByKey = (key: EmailKey) => EMAIL_TEMPLATES.find((t) => t.ke
  * Renders any registry email from its key. `workspaceText` is the second layer of the alignment emails: the workspace admin's own
  * subject and body replace the defaults (macros still resolved and escaped). `extraLink` is a system-built footer link.
  */
-export function buildEmail(key: EmailKey, input: { values: MacroValues; siteUrl: string; buttonUrl?: string | null; extraLink?: { label: string; url: string } | null; workspaceText?: { subject?: string; body?: string } | null; override?: Partial<TemplateText> | null }): Rendered {
+export function buildEmail(key: EmailKey, input: { values: MacroValues; siteUrl: string; buttonUrl?: string | null; extraLink?: { label: string; url: string } | null; workspaceText?: { subject?: string; body?: string } | null; override?: Partial<TemplateText> | null; brand?: EmailBrand | null }): Rendered {
   const t = templateByKey(key);
   const w = { ...(input.override ?? {}), ...(input.workspaceText ?? {}) };
-  const r = renderTemplate(t, { values: input.values, siteUrl: input.siteUrl, buttonUrl: input.buttonUrl, override: w, extraLink: input.extraLink });
+  const r = renderTemplate(t, { values: input.values, siteUrl: input.siteUrl, buttonUrl: input.buttonUrl, override: w, extraLink: input.extraLink, brand: input.brand ?? null });
   return r;
 }

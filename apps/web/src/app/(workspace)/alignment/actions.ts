@@ -45,6 +45,11 @@ export async function saveSettings(_prev: FormState, form: FormData): Promise<Fo
     p_show_results: s.showResults, p_retention: s.retentionMonths, p_closes_at: s.closesAt,
   });
   if (error) return { error: error.code === "PV009" ? "The settings of an open session are locked. Make a new session instead." : "We could not save the settings." };
+  // the look and the consent (issue #750): only a person, only on a draft; the database refuses everything else
+  if (form.get("voting_options_present") === "1") {
+    const { error: vo } = await supabase.rpc("alignment_session_set_voting_options", { p_id: id, p_use_brand: form.get("use_brand") === "on", p_consent_required: form.get("consent_required") === "on", p_names_ack: form.get("names_ack") === "on" });
+    if (vo) return { error: vo.code === "PV009" ? "The settings of an open session are locked. Make a new session instead." : vo.code === "PV004" || vo.code === "42501" ? "Only an admin who is a person can change this." : "We could not save the look and consent." };
+  }
   // which card fields voters can open (only when the form carries the choice, so an older form never clears it)
   if (form.get("voter_fields_present") === "1") {
     const { error: vf } = await supabase.rpc("alignment_session_set_voter_fields", { p_id: id, p_fields: cleanVoterFields(form.getAll("voter_fields")) });

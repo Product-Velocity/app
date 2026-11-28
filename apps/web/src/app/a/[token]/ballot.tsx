@@ -111,12 +111,14 @@ export function Ballot({ api = { save: saveBallotProgress, submit: submitBallot 
           const n = p.coins?.[i.id] ?? 0;
           const set = (v: number) => change({ ...p, coins: setCoins(p.coins, i.id, v, coinsTotal, coinsMax) });
           return (
-            <ItemCard key={i.id} item={i}>
+            <ItemCard key={i.id} item={i} selected={n > 0}>
               <div className="ballot-stepper" role="group" aria-label={`Coins for ${i.name}`}>
                 <button type="button" className="btn ballot-big" aria-label={`Fewer coins for ${i.name}`} onClick={() => set(n - 5)} disabled={n <= 0}>−5</button>
                 <input type="number" inputMode="numeric" min={0} max={coinsMax} value={n} aria-label={`Coins for ${i.name}`} onChange={(e) => set(Number(e.target.value))} />
                 <button type="button" className="btn ballot-big" aria-label={`More coins for ${i.name}`} onClick={() => set(n + 5)} disabled={n >= coinsMax || left <= 0}>+5</button>
               </div>
+              <div className="ballot-meter" aria-hidden="true"><span style={{ width: `${Math.min(100, (n / coinsMax) * 100)}%` }} /></div>
+              <p className="muted">{n === 0 ? `No coins yet · at most ${coinsMax} on one` : n >= coinsMax ? `${n} coins · the most on one initiative` : `${n} coins · at most ${coinsMax} on one`}</p>
             </ItemCard>
           );
         })}

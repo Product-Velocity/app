@@ -5,13 +5,14 @@ import { useActionState, useState } from "react";
 import { METHODS, groupsToText, type Group } from "@/lib/alignment";
 import { saveSettings, type FormState } from "../actions";
 
-type Session = { id: string; name: string; method: string; groups: Group[]; weighting: string; excluded: string[]; coinsTotal: number; coinsMax: number; showResults: boolean; retention: number; closesAt: string | null; voterFields: string[] };
+type Session = { id: string; name: string; method: string; groups: Group[]; weighting: string; excluded: string[]; coinsTotal: number; coinsMax: number; showResults: boolean; retention: number; closesAt: string | null; voterFields: string[]; useBrand: boolean; consentRequired: boolean; namesAck: boolean };
 
 const local = (iso: string | null) => (iso ? new Date(iso).toLocaleString("sv-SE", { hour12: false }).replace(" ", "T").slice(0, 16) : "");
 
 /** Draft settings. Everything is read-only once the session has opened. The closing time is typed in the person's own time zone. */
-export function SettingsForm({ session, locked }: { session: Session; locked: boolean }) {
+export function SettingsForm({ session, locked, brandAvailable }: { session: Session; locked: boolean; brandAvailable: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveSettings, null);
+  const [consent, setConsent] = useState(session.consentRequired);
   const [method, setMethod] = useState(session.method);
   const [groupsText, setGroupsText] = useState(groupsToText(session.groups));
   const names = groupsText.split(/\r?\n/).map((g) => g.trim()).filter(Boolean);
@@ -59,6 +60,20 @@ export function SettingsForm({ session, locked }: { session: Session; locked: bo
         )}
         <label>Closes at (optional, your time zone)<input name="closes_at" type="datetime-local" defaultValue={local(session.closesAt)} /></label>
         <label className="check"><input type="checkbox" name="show_results" defaultChecked={session.showResults} /> Participants may see the anonymous results after the session closes</label>
+        <fieldset className="stack">
+          <legend>Look and consent</legend>
+          <input type="hidden" name="voting_options_present" value="1" />
+          <label className="check"><input type="checkbox" name="use_brand" defaultChecked={session.useBrand} /> Use our company brand on this vote</label>
+          <p className="muted">{brandAvailable ? "Voters see your logo and colours, and no Product Velocity branding, on the screens and in the emails." : "Your brand is not confirmed or not switched on for voting yet (Company profile, Brand), so voters see the Product Velocity look."}</p>
+          <label className="check"><input type="checkbox" name="consent_required" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> Ask voters to accept before they vote</label>
+          <p className="muted">Off by default: a vote inside your company is covered by your own policies, so voters just press Start voting. Turn it on if you invite people from outside the company; they then read and accept the wording before voting.</p>
+          {!consent && (
+            <>
+              <label className="check"><input type="checkbox" name="names_ack" defaultChecked={session.namesAck} /> I confirm our company&apos;s own policy covers this vote, including that admins and Creators can see who voted what</label>
+              <p className="muted">Without this, Creators cannot open who voted what on this session. Admins always can, with a reason that is logged.</p>
+            </>
+          )}
+        </fieldset>
         <fieldset className="stack">
           <legend>What voters can open under &ldquo;More&rdquo; on each initiative</legend>
           <p className="muted">Voters always see the name, summary and value proposition. The card is closed until they open it. Only what you tick is copied when the session opens, and it cannot change afterwards.</p>

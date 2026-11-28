@@ -11,6 +11,8 @@ export type LinkParticipant = {
 export type LinkSession = {
   id: string; name: string; status: string; method: string; closes_at: string | null; retention_months: number; show_results: boolean;
   coins_total: number; coins_max_per_item: number; groups: { id: string; name: string }[];
+  /** Issue #750: whether the session shows the company brand, and whether voters accept wording first. */
+  use_brand: boolean; consent_required: boolean;
 };
 export type LinkState =
   | { kind: "unknown" }
@@ -37,7 +39,7 @@ export async function resolveLink(token: string): Promise<LinkState> {
     return old ? { kind: "replaced", participantId: (old as { id: string }).id } : { kind: "unknown" };
   }
   if (p.removed_at) return { kind: "unknown" };
-  const { data: s } = await admin.from("alignment_sessions").select("id, name, status, method, closes_at, retention_months, show_results, coins_total, coins_max_per_item, groups").eq("id", p.session_id).maybeSingle();
+  const { data: s } = await admin.from("alignment_sessions").select("id, name, status, method, closes_at, retention_months, show_results, coins_total, coins_max_per_item, groups, use_brand, consent_required").eq("id", p.session_id).maybeSingle();
   if (!s) return { kind: "unknown" };
   p = { ...p };
   return { kind: "ok", participant: p, session: s as LinkSession, hash };
